@@ -20,11 +20,11 @@ UPLOAD_FOLDER = './uploads'
 ALLOWED_EXTENSIONS = {'pdf'}
 CHROMA_COLLECTION = 'knowledgebase_documents'
 CHROMA_PERSIST_DIR = './chroma_langchain_db'
-PSQL_DBNAME = ""
+PSQL_DBNAME = "cross-sales-engine-dev-db1"
 PSQL_HOST = "localhost"
 PSQL_PORT = 5432
-PSQL_USERNAME = ""
-PSQL_PASSWORD = ""
+PSQL_USERNAME = "postgres"
+PSQL_PASSWORD = "toor"
 '''
 CONSTANTS END
 ================================================================================================
@@ -82,18 +82,25 @@ def pdf_to_vectorstore(filepath, fileId):
 
 def pdf_to_postgresql(filename, fileId):
 
-    loader = PyPDFLoader(filepath)
-    
-    docs = loader.load()
-    ids = [str(uuid4()) for _ in range(len(docs))]
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    # For adding metadata to each chunk
-    for doc in docs:
-        doc.metadata["source_file"] = filepath
-        doc.metadata["file_id"] = str(fileId)
+        createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS document(id INT PRIMARY KEY, name VARCHAR(255), date VARCHAR(255))"
+        cursor.execute(createDocsTable_sql_query)
 
+        currentDate = ""
+        insertDocEntry_sql_query = f"INSERT INTO document(id, name, date) VALUES ({fileId, filename, currentDate})"
+        cursor.execute(insertDocEntry_sql_query)
+ 
+    except Exception as e:
+        print("Error when storing PDF to PostgreSQL Database!")
+        print(e)
+    finally:
+        cursor.close()
+        conn.close()
+        
 
-    vector_store.add_documents(documents=docs, ids=ids)
 
     return true
 
@@ -146,15 +153,19 @@ def upload_file():
     file.save(filepath)
 
     # Add Upload to PostgreSQL Database
-
+    fileId = str(uuid4())[:8]
+    # pdf_to_postgresql(filename, fileId)
     
     # Add PDF Input to Vector Store
-    pdf_to_vectorstore(filepath)
+    # pdf_to_vectorstore(filepath, fileId)
 
     # Build Response
     return {
         "status": "success",
-        "message": "Upload Success!"
+        "message": "Upload Success!",
+        "data": {
+            "fileId": fileId
+        }
     }
 
 '''

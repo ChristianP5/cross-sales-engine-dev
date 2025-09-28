@@ -21,3 +21,6 @@
 
 **When Starting**
 > python3 app.py
+
+## Available Endpoints
+- /inventory

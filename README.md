@@ -17,5 +17,7 @@ _To Start_
 
 > . ./.venv/bin/activate
 
+> pip install -r requirements.txt
+
 **When Starting**
 > python3 app.py

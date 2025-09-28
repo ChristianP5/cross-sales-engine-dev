@@ -29,9 +29,9 @@
     <!-- Upload Start -->
     <section class="row" id="upload-box">
         <h1>Upload PDF</h1>
-        <form action="/v1/upload" method="post" enctype=multipart/form-data>
+        <form id="upload-form" action="/v1/upload" method="post" enctype=multipart/form-data>
             <input type="file" name="file" id="input-file">
-            <input type="submit" value="Upload" id="submit-btn">
+            <button class="btn btn-primary" id="submit-btn">Upload</button>
         </form>
     </section>
     <!-- Upload End -->

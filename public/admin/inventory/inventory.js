@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await response.json()
 
         if(!response.ok){
-            throw new Error(response)
+            throw new Error(data)
         }
 
         const docs = data.data.docs
@@ -40,7 +40,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeList()
 
     // Configure Upload Behavior
+    const initializeUpload = async () => {
+        const uploadForm = document.querySelector("#upload-form")
+        const uploadSubmitButton = uploadForm.querySelector("#submit-btn")
+        uploadSubmitButton.addEventListener("click", async (e) => {
+            e.preventDefault()
+
+            uploadSubmitButton.textContent = "Please Wait"
+            uploadSubmitButton.disabled = true
+
+            const formData = new FormData(uploadForm)
+
+            const targetEndpoint = "/v1/upload"
+            const response = await fetch(targetEndpoint, {
+                method: "POST",
+                body: formData
+            })
+
+            const data = await response.json()
+
+            if(!response.ok){
+                alert(data.message)
+                throw new Error(data.message)
+            }
+
+            alert(data.message)
+
+            location.href = `/inventory`
+            return;
+            
+        })
+    }
     
+    initializeUpload()
     
 
 })

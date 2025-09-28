@@ -177,9 +177,9 @@ INIT END
 FRONTEND SERVER START
 '''
 
-@app.route('/upload', methods=['GET'])
+@app.route('/inventory', methods=['GET'])
 def upload_file_page():
-    return render_template("upload.html")
+    return render_template("inventory.html")
 
 @app.route('/file/<path:filename>', methods=['GET'])
 def get_file(filename):
@@ -209,7 +209,7 @@ def upload_file():
         return {
             "status": "fail",
             "message": "Invalid Input"
-        }
+        },400
     
     filename = secure_filename(file.filename)
 
@@ -240,7 +240,7 @@ def upload_file():
         "data": {
             "fileId": fileId
         }
-    }
+    },201
 
 '''
 UPLOAD FEATURE

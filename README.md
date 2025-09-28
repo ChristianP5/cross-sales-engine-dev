@@ -14,6 +14,7 @@ _To Start_
 
 **Do Once**
 > python3 -m venv .venv
+
 > . ./.venv/bin/activate
 
 **When Starting**

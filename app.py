@@ -11,6 +11,9 @@ from uuid import uuid4
 from langchain_core.documents import Document
 
 import psycopg2
+from datetime import datetime
+
+import logging
 
 '''
 ================================================================================================
@@ -50,6 +53,9 @@ retriever = vector_store.as_retriever(
     search_type="mmr", search_kwargs={"k": 1, "fetch_k": 5}
 )
 
+# Initialize Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 '''
 INIT END
 ================================================================================================
@@ -78,7 +84,7 @@ def pdf_to_vectorstore(filepath, fileId):
 
     vector_store.add_documents(documents=docs, ids=ids)
 
-    return true
+    return True
 
 def pdf_to_postgresql(filename, fileId):
 
@@ -86,12 +92,14 @@ def pdf_to_postgresql(filename, fileId):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS document(id INT PRIMARY KEY, name VARCHAR(255), date VARCHAR(255))"
+        createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS document(id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), date VARCHAR(255));"
         cursor.execute(createDocsTable_sql_query)
 
-        currentDate = ""
-        insertDocEntry_sql_query = f"INSERT INTO document(id, name, date) VALUES ({fileId, filename, currentDate})"
+        currentDate = str(datetime.now())
+        insertDocEntry_sql_query = f"INSERT INTO document(id, name, date) VALUES ('{fileId}', '{filename}', '{currentDate}');"
         cursor.execute(insertDocEntry_sql_query)
+
+        conn.commit()
  
     except Exception as e:
         print("Error when storing PDF to PostgreSQL Database!")
@@ -102,7 +110,7 @@ def pdf_to_postgresql(filename, fileId):
         
 
 
-    return true
+    return True
 
 def get_db_connection():
     return psycopg2.connect(
@@ -119,11 +127,18 @@ UTILS END
 ================================================================================================
 '''
 
+'''
+================================================================================================
+'''
 
 @app.route('/upload', methods=['GET'])
 def upload_file_page():
     return render_template("upload.html")
 
+
+'''
+
+'''
 
 '''
 ================================================================================================
@@ -146,20 +161,28 @@ def upload_file():
             "message": "Invalid Input"
         }
 
-    # Upload the PDF Input
+    # Upload the PDF Input to File Storage
+    logging.info(f"{filename} saving to File Storage")
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     file.save(filepath)
 
+    logging.info(f"{filename} saved to File Storage")
+
     # Add Upload to PostgreSQL Database
+    logging.info(f"{filename} Metadata saving to Database")
     fileId = str(uuid4())[:8]
-    # pdf_to_postgresql(filename, fileId)
+    pdf_to_postgresql(filename, fileId)
+    logging.info(f"{filename} Metadata saved to Database")
     
     # Add PDF Input to Vector Store
-    # pdf_to_vectorstore(filepath, fileId)
+    logging.info(f"{filename} Embedding saving to Vector Store")
+    pdf_to_vectorstore(filepath, fileId)
+    logging.info(f"{filename} Embedding saved to Vector Store")
 
     # Build Response
+    logging.info(f"/v1/upload executed smoothly for {filename}")
     return {
         "status": "success",
         "message": "Upload Success!",
@@ -172,5 +195,6 @@ def upload_file():
 API SERVER END
 ================================================================================================
 '''
-
-app.run(host="0.0.0.0", port=5000)
+logging.info("Web Server Initalized")
+app.run(host="0.0.0.0", port=80)
+logging.info("Web Server Stopped")

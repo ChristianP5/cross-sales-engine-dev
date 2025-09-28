@@ -1,7 +1,7 @@
 
 # Cross-Sell Engine
 
-_Required Components_
+## Required Components
 - PostgreSQL 18
     - Database Name: "cross-sales-engine-dev-db1"
 - a File Storage
@@ -10,7 +10,7 @@ _Required Components_
     - Embedding Model: mxbai-embed-large
     - LLM: llama3
 
-_To Start_
+## To Start
 
 **Do Once**
 > python3 -m venv .venv

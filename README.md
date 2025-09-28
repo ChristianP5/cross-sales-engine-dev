@@ -11,9 +11,10 @@ _Required Components_
     - LLM: llama3
 
 _To Start_
+
 **Do Once**
-python3 -m venv .venv
-. ./.venv/bin/activate
+> python3 -m venv .venv
+> . ./.venv/bin/activate
 
 **When Starting**
-python3 app.py
+> python3 app.py

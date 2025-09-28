@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <td>${doc.id}</td>
             <td>${doc.type}</td>
             <td>${doc.name}</td>
-            <td>${doc.date}}</td>
+            <td>${doc.date}</td>
             `
 
             inventoryListElement.appendChild(item)
@@ -73,6 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     initializeUpload()
-    
+
 
 })

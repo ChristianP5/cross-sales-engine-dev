@@ -26,9 +26,14 @@
             <li>Logging</li>
         </ul>
     </nav>
+    <!-- Header Start -->
+     <header class="row">
+        <h1>Inventory</h1>
+     </header>
+    <!-- Header End -->
     <!-- Upload Start -->
     <section class="row" id="upload-box">
-        <h1>Upload PDF</h1>
+        <h2>Upload PDF</h2>
         <form id="upload-form" action="/v1/upload" method="post" enctype=multipart/form-data>
             <input type="file" name="file" id="input-file">
             <button class="btn btn-primary" id="submit-btn">Upload</button>
@@ -37,7 +42,7 @@
     <!-- Upload End -->
     <!-- Inventory Start -->
     <section class="row mt-2" id="inventory-box">
-        <h1>Inventory</h1>
+        <h2>Inventory</h2>
         <!-- List Start -->
          <table class="table table-hover">
             <thead>

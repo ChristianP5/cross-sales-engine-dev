@@ -76,7 +76,7 @@ def list_documents():
         data = cursor.fetchall()
         docs = []
         for doc in data:
-            item = {"id": doc[0], "type": doc[1], "name": doc[2], "date": doc[3]}
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "date": doc[3]}
             docs.append(item)
     
     except Exception as e:

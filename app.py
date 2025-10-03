@@ -15,6 +15,11 @@ from datetime import datetime
 
 import logging
 
+from langchain_ollama.llms import OllamaLLM
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain.schema.output_parser import StrOutputParser
+
 '''
 ================================================================================================
 UTILS START
@@ -99,6 +104,27 @@ def get_db_connection():
         port=PSQL_PORT
     )
 
+def inference(question):
+    
+    template ="""Answer these questions within 5 Sentences.
+Context: {context}
+Question: {question}"""
+ 
+    prompt = ChatPromptTemplate.from_template(template)
+
+    llm = OllamaLLM(model="llama3.1")
+
+    
+
+    augment_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt
+
+    augmented_prompt = augment_chain.invoke(question).to_string()
+
+    generate_chain =  llm | StrOutputParser()
+    response = generate_chain.invoke(augmented_prompt)
+
+    return augmented_prompt, response
+
 
 '''
 UTILS END
@@ -129,6 +155,10 @@ CONSTANTS END
 ================================================================================================
 INIT START
 '''
+
+# Initialize Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+
 # Initialize Web Server
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -152,7 +182,12 @@ try:
     createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS document(id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), date VARCHAR(255));"
     cursor.execute(createDocsTable_sql_query)
 
+    createPromptsTable_sql_query = "CREATE TABLE IF NOT EXISTS prompt(id VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), prompt VARCHAR(255), response VARCHAR(255), date VARCHAR(255));"
+    cursor.execute(createPromptsTable_sql_query)
+
     conn.commit()
+
+    logging.info("Database Server Initalized")
 except Exception as e:
     logging.exception("Error when Initializing Database")
     print(e)
@@ -164,8 +199,6 @@ finally:
 
 
 
-# Initialize Logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 '''
 INIT END
@@ -181,9 +214,14 @@ FRONTEND SERVER START
 def upload_file_page():
     return render_template("inventory.html")
 
+@app.route('/chat', methods=['GET'])
+def chat_page():
+    return render_template("chat.html")
+
 @app.route('/file/<path:filename>', methods=['GET'])
 def get_file(filename):
     return send_from_directory(PUBLIC_FILES_DIR, filename)
+
 
 '''
 FRONTEND SERVER END
@@ -200,6 +238,7 @@ UPLOAD FEATURE
 '''
 @app.route('/v1/upload', methods=['POST'])
 def upload_file():
+    
     
     # Extract PDF from Request
     file = request.files['file']
@@ -243,7 +282,7 @@ def upload_file():
     },201
 
 '''
-UPLOAD FEATURE
+LIST DOCUMENTS FEATURE
 '''
 @app.route('/v1/documents', methods=['GET'])
 def get_list_documents():
@@ -255,6 +294,26 @@ def get_list_documents():
         "message": "Data Retrieved Successfully!",
         "data": {
             "docs": docs
+        }
+    }
+
+'''
+INFERENCE FEATURE
+'''
+@app.route('/v1/inference', methods=['POST'])
+def post_inference():
+
+    prompt = request.get_json().get('question')
+
+    augmented_prompt, response = inference(prompt)
+
+    return {
+        "status": "success",
+        "message": "Inference Successfully!",
+        "data": {
+            "user_prompt": prompt,
+            "final_prompt": augmented_prompt,
+            "response": response,
         }
     }
 

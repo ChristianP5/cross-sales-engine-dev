@@ -16,10 +16,11 @@
       integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
       crossorigin="anonymous"
     ></script>
+    <script src="/file/chat/chat.js"></script>
   </head>
   <body>
     <main class="container">
-      <section class="row" id="chat-sect-header">
+      <section class="row" id="chat-prompt-sect-header">
         <h1>Chat</h1>
       </section>
       <section class="row" id="chat-prompt-sect">
@@ -37,14 +38,23 @@
               />
             </div>
             <div class="col">
-              <button type="button" class="btn btn-primary" id="submit-btn">
+              <button
+                type="button"
+                class="btn btn-primary"
+                id="chat-submit-btn"
+              >
                 Submit
               </button>
             </div>
           </div>
         </form>
       </section>
-      <section class="row" id="chat-response-sect"></section>
+      <section class="row" id="chat-response-sect-header">
+        <h1>Response</h1>
+      </section>
+      <section class="row" id="chat-response-sect">
+        The response will be shown here...
+      </section>
     </main>
   </body>
 </html>

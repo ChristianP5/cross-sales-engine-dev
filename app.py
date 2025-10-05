@@ -106,7 +106,8 @@ def get_db_connection():
 
 def inference(question):
     
-    template ="""Answer these questions within 5 Sentences.
+    template ="""Answer these questions within 5 Sentences and only contain information based on the given Context.
+Respond that you don't have the necessary information when receiving a Question that doesn't have an appropriate answer inside the given Context.
 Context: {context}
 Question: {question}"""
  
@@ -304,7 +305,7 @@ INFERENCE FEATURE
 def post_inference():
 
     prompt = request.get_json().get('question')
-
+    print(prompt)
     augmented_prompt, response = inference(prompt)
 
     return {

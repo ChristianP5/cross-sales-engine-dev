@@ -11,11 +11,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault()
 
             const responseSection = document.querySelector('#chat-response-sect')
-            
+            responseSection.textContent = "Please Wait"
             chatSubmitBtn.disabled = true
 
             const question = document.querySelector('#input-question').value
-            
+
+
             const formData = JSON.stringify({
                 question: question
             })

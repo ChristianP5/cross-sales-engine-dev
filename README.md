@@ -24,6 +24,7 @@
 
 **When Stopping**
 > ps aux
+> 
 > kill <pid>
 
 ## Available Endpoints

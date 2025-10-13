@@ -22,5 +22,11 @@
 **When Starting**
 > python3 app.py
 
+**When Stopping**
+> ps aux
+> 
+> kill <pid>
+
 ## Available Endpoints
 - /inventory
+- /chat

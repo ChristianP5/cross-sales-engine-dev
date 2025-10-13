@@ -14,6 +14,7 @@ import psycopg2
 from datetime import datetime
 
 import logging
+import hashlib
 
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
@@ -52,7 +53,7 @@ def pdf_to_postgresql(filename, fileId):
         cursor = conn.cursor()
 
         currentDate = str(datetime.now())
-        insertDocEntry_sql_query = f"INSERT INTO document(id, name, type, date) VALUES ('{fileId}', '{filename}', 'PDF', '{currentDate}');"
+        insertDocEntry_sql_query = f"INSERT INTO documents(id, name, type, date) VALUES ('{fileId}', '{filename}', 'PDF', '{currentDate}');"
         cursor.execute(insertDocEntry_sql_query)
 
         conn.commit()
@@ -72,7 +73,7 @@ def list_documents():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        sql_query = "SELECT * FROM document;"
+        sql_query = "SELECT * FROM documents;"
 
         cursor.execute(sql_query)
 
@@ -106,8 +107,12 @@ def get_db_connection():
 
 def inference(question):
     
-    template ="""Answer these questions within 5 Sentences and only contain information based on the given Context.
-Respond that you don't have the necessary information when receiving a Question that doesn't have an appropriate answer inside the given Context.
+    template ="""You are an expert assistant answering user questions.
+    Use the provided context as supporting information, but do not limit yourself strictly to it.
+    If the context contains useful facts, include them.
+    If the context does not fully answer the question, state that first, and then use your own general knowledge to give the best possible answer.
+    But if the Context does not contain any relevant information, state that first, and then explain based on your general knowledge in less than 5 sentences.
+    Always be accurate and clear.
 Context: {context}
 Question: {question}"""
  
@@ -125,6 +130,32 @@ Question: {question}"""
     response = generate_chain.invoke(augmented_prompt)
 
     return augmented_prompt, response
+
+def savePrompt(userId, chatId, initialPrompt, finalPrompt, response):
+    currentDate = str(datetime.now())
+    inferenceId = hashlib.sha256(currentDate.encode()).hexdigest()[:8]
+
+    try:
+        logging.info("Saving Prompt Started.")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+
+        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId))
+
+        conn.commit()
+    
+    except Exception as e:
+        logging.exception("Error when Saving Prompt to PostgreSQL Database!")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+        
+    logging.info("Saving Prompt Finished.")
+    return True
 
 
 '''
@@ -180,11 +211,17 @@ retriever = vector_store.as_retriever(
 try:
     conn = get_db_connection()
     cursor = conn.cursor()
-    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS document(id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), date VARCHAR(255));"
+    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), dateCreated VARCHAR(255));"
     cursor.execute(createDocsTable_sql_query)
 
-    createPromptsTable_sql_query = "CREATE TABLE IF NOT EXISTS prompt(id VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), prompt VARCHAR(255), response VARCHAR(255), date VARCHAR(255));"
-    cursor.execute(createPromptsTable_sql_query)
+    createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated VARCHAR(255));"
+    cursor.execute(createInferencesTable_sql_query)
+
+    createUsersTable_sql_query = "CREATE TABLE IF NOT EXISTS users(userId VARCHAR(255) PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), dateCreated VARCHAR(255));"
+    cursor.execute(createUsersTable_sql_query)
+
+    createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), dateCreated VARCHAR(255));"
+    cursor.execute(createChatsTable_sql_query)
 
     conn.commit()
 
@@ -304,9 +341,17 @@ INFERENCE FEATURE
 @app.route('/v1/inference', methods=['POST'])
 def post_inference():
 
-    prompt = request.get_json().get('question')
-    print(prompt)
+    req = request.get_json()
+
+    userId = "TEST_USER"
+    chatId = "TEST_CHAT"
+
+    prompt = req.get('question')
+    logging.info(f"Prompt received: {prompt}")
+
     augmented_prompt, response = inference(prompt)
+
+    savePrompt(userId, chatId, prompt, augmented_prompt, response)
 
     return {
         "status": "success",

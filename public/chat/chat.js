@@ -5,14 +5,23 @@ document.addEventListener('DOMContentLoaded', async () => {
      */
 
     // 1)
+    const disableButton = (button) => {
+        button.textContent = "Please Wait"
+        button.disabled = true
+    }
+
+    const enableButton = (button) => {
+        button.textContent = "Submit"
+        button.disabled = false
+    }
     const inferencefeature = async () => {
         const chatSubmitBtn = document.querySelector('#chat-submit-btn')
         chatSubmitBtn.addEventListener('click', async (e) => {
             e.preventDefault()
 
             const responseSection = document.querySelector('#chat-response-sect')
-            responseSection.textContent = "Please Wait"
-            chatSubmitBtn.disabled = true
+            responseSection.textContent = "Please wait..."
+            disableButton(chatSubmitBtn)
 
             const question = document.querySelector('#input-question').value
 
@@ -36,12 +45,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if(!result.ok){
                 alert(data.message)
+                enableButton(chatSubmitBtn)
                 throw new Error(data.message)
             }
 
             const chatResponse = data.data.response
 
             responseSection.textContent = chatResponse
+
+            enableButton(chatSubmitBtn)
 
         })
     }

@@ -39,15 +39,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     initializeList()
 
-    // Configure Upload Behavior
+    // Configure Upload 
+    
+    const disableButton = (button) => {
+        button.textContent = "Please Wait"
+        button.disabled = true
+    }
+
+    const enableButton = (button) => {
+        button.textContent = "Submit"
+        button.disabled = false
+    }
+
+
     const initializeUpload = async () => {
         const uploadForm = document.querySelector("#upload-form")
         const uploadSubmitButton = uploadForm.querySelector("#submit-btn")
         uploadSubmitButton.addEventListener("click", async (e) => {
             e.preventDefault()
 
-            uploadSubmitButton.textContent = "Please Wait"
-            uploadSubmitButton.disabled = true
+            disableButton(uploadSubmitButton)
 
             const formData = new FormData(uploadForm)
 
@@ -61,7 +72,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if(!response.ok){
                 alert(data.message)
+                enableButton(uploadSubmitButton)
                 throw new Error(data.message)
+                
             }
 
             alert(data.message)

@@ -52,9 +52,9 @@ def pdf_to_postgresql(filename, fileId):
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        currentDate = str(datetime.now())
-        insertDocEntry_sql_query = f"INSERT INTO documents(id, name, type, date) VALUES ('{fileId}', '{filename}', 'PDF', '{currentDate}');"
-        cursor.execute(insertDocEntry_sql_query)
+        currentDate = datetime.now()
+        insertDocEntry_sql_query = f"INSERT INTO documents(documentId, name, type, dateCreated) VALUES (%s, %s, 'PDF', %s);"
+        cursor.execute(insertDocEntry_sql_query, (fileId, filename, currentDate))
 
         conn.commit()
  
@@ -132,8 +132,8 @@ Question: {question}"""
     return augmented_prompt, response
 
 def savePrompt(userId, chatId, initialPrompt, finalPrompt, response):
-    currentDate = str(datetime.now())
-    inferenceId = hashlib.sha256(currentDate.encode()).hexdigest()[:8]
+    currentDate = datetime.now()
+    inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
 
     try:
         logging.info("Saving Prompt Started.")
@@ -157,6 +157,38 @@ def savePrompt(userId, chatId, initialPrompt, finalPrompt, response):
     logging.info("Saving Prompt Finished.")
     return True
 
+def getInferencesById(chatId):
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM inferences WHERE chatId = %s;"
+
+        cursor.execute(sql_query, (chatId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        # print(data)
+
+        inferences = []
+        
+        for inference in data:
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response": inference[5], "dateCreated": inference[6]}
+            inferences.append(item)
+        
+    
+    except Exception as e:
+        logging.exception("Error when Listing Inferences to PostgreSQL Database!")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return inferences
 
 '''
 UTILS END
@@ -211,16 +243,16 @@ retriever = vector_store.as_retriever(
 try:
     conn = get_db_connection()
     cursor = conn.cursor()
-    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), dateCreated VARCHAR(255));"
+    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createDocsTable_sql_query)
 
-    createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated VARCHAR(255));"
+    createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createInferencesTable_sql_query)
 
-    createUsersTable_sql_query = "CREATE TABLE IF NOT EXISTS users(userId VARCHAR(255) PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), dateCreated VARCHAR(255));"
+    createUsersTable_sql_query = "CREATE TABLE IF NOT EXISTS users(userId VARCHAR(255) PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createUsersTable_sql_query)
 
-    createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), dateCreated VARCHAR(255));"
+    createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createChatsTable_sql_query)
 
     conn.commit()
@@ -255,6 +287,10 @@ def upload_file_page():
 @app.route('/chat', methods=['GET'])
 def chat_page():
     return render_template("chat.html")
+
+@app.route('/chats/<chatId>', methods=['GET'])
+def chat_page_byId(chatId):
+    return render_template("chatById.html")
 
 @app.route('/file/<path:filename>', methods=['GET'])
 def get_file(filename):
@@ -360,6 +396,22 @@ def post_inference():
             "user_prompt": prompt,
             "final_prompt": augmented_prompt,
             "response": response,
+        }
+    }
+
+'''
+LIST INFERENCES By ID Feature
+'''
+@app.route('/v1/chats/<chatId>/inferences', methods=['GET'])
+def get_inferences_byId(chatId):
+
+    inferences = getInferencesById(chatId)
+
+    return {
+        "status": "success",
+        "message": "Inference Successfully!",
+        "data": {
+            "inferences": inferences
         }
     }
 

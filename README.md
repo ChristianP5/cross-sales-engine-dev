@@ -30,3 +30,4 @@
 ## Available Endpoints
 - /inventory
 - /chat
+- /chats/TEST_CHAT

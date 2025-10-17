@@ -190,6 +190,95 @@ def getInferencesById(chatId):
 
     return inferences
 
+def deleteDocumentById(filename, documentId):
+
+    delete_doc_from_postgresql(documentId)
+
+    delete_doc_from_filesystem(filename)
+
+    delete_doc_from_vectorstore(documentId)
+
+    return True
+
+def getDocumentById(documentId):
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM documents WHERE documentId = %s;"
+
+        cursor.execute(sql_query, (documentId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        docs = []
+        for doc in data:
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "date": doc[3]}
+            docs.append(item)
+    
+    except Exception as e:
+        logging.exception(f"Error when retrieving Document {documentId} from PostgreSQL Database!")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return docs[0]
+
+def delete_doc_from_postgresql(documentId):
+    try:
+        logging.info(f"Deleting Document {documentId} from PostgreSQL Database.")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        sql_query = f"DELETE FROM documents WHERE documentId = %s;"
+
+        cursor.execute(sql_query, (documentId, ))
+
+        conn.commit()
+    
+    except Exception as e:
+        logging.exception(f"Error when deleting Document {documentId} PostgreSQL Database!")
+        print(e)
+    finally:
+        cursor.close()
+        conn.close()
+        
+    logging.info(f"Document {documentId} deleted Successfully from PostgreSQL Database.")
+
+    return True
+
+def delete_doc_from_filesystem(filename):
+
+    try:
+        # Upload the PDF Input to File Storage
+        logging.info(f"{filename} deleting from File Storage")
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        os.path.exists(filepath)
+        os.remove(filepath)
+    except Exception:
+        logging.exception(f"Error when deleting File {filename} from File Storage!")
+        print(e)
+
+    logging.info(f"File {filename} deleted Successfully from File Storage.")
+    return True
+
+def delete_doc_from_vectorstore(documentId):
+    ids = []
+    try:
+        ids.append(documentId)
+        vector_store.delete(ids=ids)
+    except Exception:
+        logging.exception(f"Error when deleting Document {documentId} from Vector Store!")
+        print(e)
+    
+    logging.info(f"Document {documentId} deleted Successfully from Vector Store.")
+    return True
+
 '''
 UTILS END
 ================================================================================================
@@ -372,6 +461,23 @@ def get_list_documents():
     }
 
 '''
+DELETE DOCUMENTS FEATURE
+'''
+@app.route('/v1/documents/<documentId>', methods=['DELETE'])
+def delete_document_byId(documentId):
+
+    doc = getDocumentById(documentId)
+    filename = doc['name']
+
+    print(f"Deletig Filename:{filename}")
+    deleteDocumentById(filename, documentId)
+
+    return {
+        "status": "success",
+        "message": f"Document {documentId} deleted successfully Successfully!",
+    }
+
+'''
 INFERENCE FEATURE
 '''
 @app.route('/v1/inference', methods=['POST'])
@@ -403,7 +509,7 @@ def post_inference():
 LIST INFERENCES By ID Feature
 '''
 @app.route('/v1/chats/<chatId>/inferences', methods=['GET'])
-def get_inferences_byId(chatId):
+def get_inferences_byChatId(chatId):
 
     inferences = getInferencesById(chatId)
 

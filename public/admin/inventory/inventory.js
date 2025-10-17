@@ -31,7 +31,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             <td>${doc.type}</td>
             <td>${doc.name}</td>
             <td>${doc.date}</td>
+            <td>
+                <button type="button" class="btn btn-danger delete-doc-btn">Delete</button>
+                <button type="button" class="btn btn-success download-doc-btn">Download</button>
+            </td>
             `
+
+            deleteDocumentButton = item.querySelector(".delete-doc-btn")
+            deleteDocumentButton.addEventListener("click", async (e) => {
+                e.preventDefault()
+
+                const deleteDocument_targetEndpoint = `/v1/documents/${doc.id}`
+                const response = await fetch(deleteDocument_targetEndpoint, {
+                    method: "DELETE"
+                })
+
+                const data = await response.json()
+
+                if(!response.ok){
+                    alert(data.message)
+                    throw new Error(data)
+                }
+
+                alert(`Document ${doc.name} deleted successfully!`)
+                location.href = `/inventory`
+                return;
+
+            })
 
             inventoryListElement.appendChild(item)
         })

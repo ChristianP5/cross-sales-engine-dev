@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <p><b>LLM (Ollama)</b> - <span>${inference.dateCreated}</span></p>
                   </section>
                   <section class="row response-sect">
-                    <p>${inference.response}</p>
+                    <p>${inference.response_html}</p>
                   </section>
                 </section>
               </section>
@@ -145,11 +145,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         // Extract the response
-        const response = data.data.response
+        const response = data.data.response_html
 
         // Display the response
         const generatedResultTextElement = itemElement.querySelector(".genereated-result-text")
-        generatedResultTextElement.textContent = response
+        generatedResultTextElement.innerHTML = response
         
         // Re-enable the Button
         enableButton(submitButton)

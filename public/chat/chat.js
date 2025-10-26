@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error(data.message)
             }
 
-            const chatResponse = data.data.response
+            const chatResponse = data.data.response_html
 
             responseSection.textContent = chatResponse
 

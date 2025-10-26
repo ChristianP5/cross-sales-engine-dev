@@ -15,6 +15,7 @@ from datetime import datetime
 
 import logging
 import hashlib
+import markdown
 
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
@@ -176,7 +177,9 @@ def getInferencesById(chatId):
         inferences = []
         
         for inference in data:
-            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response": inference[5], "dateCreated": inference[6]}
+            response_raw = inference[5]
+            response_html = markdown.markdown(response_raw)
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "response_html": response_html}
             inferences.append(item)
         
     
@@ -491,9 +494,11 @@ def post_inference():
     prompt = req.get('question')
     logging.info(f"Prompt received: {prompt}")
 
-    augmented_prompt, response = inference(prompt)
+    augmented_prompt, response_raw = inference(prompt)
 
-    savePrompt(userId, chatId, prompt, augmented_prompt, response)
+    savePrompt(userId, chatId, prompt, augmented_prompt, response_raw)
+
+    response_html = markdown.markdown(response_raw)
 
     return {
         "status": "success",
@@ -501,7 +506,8 @@ def post_inference():
         "data": {
             "user_prompt": prompt,
             "final_prompt": augmented_prompt,
-            "response": response,
+            "response": response_raw,
+            "response_html": response_html,
         }
     }
 

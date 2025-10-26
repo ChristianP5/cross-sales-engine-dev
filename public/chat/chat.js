@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const chatResponse = data.data.response_html
 
-            responseSection.textContent = chatResponse
+            responseSection.innerHTML = chatResponse
 
             enableButton(chatSubmitBtn)
 

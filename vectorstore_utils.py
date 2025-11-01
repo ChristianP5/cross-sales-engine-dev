@@ -43,16 +43,16 @@ o	Business or technical value (efficiency, performance, ROI, etc.)
 o	Level of confidence (High / Medium / Low)
 3.	Highlight any dependencies, upgrade paths, or pre-requisites if applicable.
 4.	Suggest how to position the recommendation during a sales conversation.
-Output Format:
+Output Format (Markdown):
 ### Cross-Sell Recommendations
-1. **[Product Name]**
-   - **Fit Rationale:** …
-   - **Value Proposition:** …
-   - **Confidence Level:** …
-   - **Sales Positioning Tip:** …
+1. #### [Product Name]
+   * **Fit Rationale:** …
+   * **Value Proposition:** …
+   * **Confidence Level:** …
+   * **Sales Positioning Tip:** …
 
-2. **[Product Name]**
-   - ...
+2. #### [Product Name]
+   * ...
 Constraints:
 •	Base all insights only on the provided context and retrieved information.
 •	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
@@ -74,3 +74,16 @@ Question: {question}
     response = generate_chain.invoke(augmented_prompt)
 
     return augmented_prompt, response
+
+
+def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
+    ids = []
+    try:
+        ids.append(documentId)
+        vectorStore.delete(ids=ids)
+    except Exception as e:
+        loggingConfig["loggingObject"].exception(f"Error when deleting Document {documentId} from Vector Store!")
+        print(e)
+    
+    loggingConfig["loggingObject"].info(f"Document {documentId} deleted Successfully from Vector Store.")
+    return True

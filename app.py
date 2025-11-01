@@ -27,181 +27,19 @@ from langchain.schema.output_parser import StrOutputParser
 UTILS START
 '''
 
-from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference
-from psql_utills import get_db_connection, pdf_to_postgresql, list_documents
-
-'''
-def inference(question):
-    
-    template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
-Goal: Based on the retrieved context, analyze the customer’s existing technology environment, company best practices, and vendor product portfolio to recommend additional products, services, or upgrades that align with the customer’s business goals and technology stack.
-Context Provided: {context}
-Your Tasks:
-1.	Identify potential cross-sell recommendations that complement the customer’s existing environment.
-2.	For each recommendation, provide:
-o   Product / Service Name
-o	Why it fits this customer (alignment with environment, needs, or gaps)
-o	Business or technical value (efficiency, performance, ROI, etc.)
-o	Level of confidence (High / Medium / Low)
-3.	Highlight any dependencies, upgrade paths, or pre-requisites if applicable.
-4.	Suggest how to position the recommendation during a sales conversation.
-Output Format:
-### Cross-Sell Recommendations
-1. **[Product Name]**
-   - **Fit Rationale:** …
-   - **Value Proposition:** …
-   - **Confidence Level:** …
-   - **Sales Positioning Tip:** …
-
-2. **[Product Name]**
-   - ...
-Constraints:
-•	Base all insights only on the provided context and retrieved information.
-•	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
-•	Use concise, professional, and actionable language suitable for sales enablement documentation.
-Question: {question}
-"""
- 
-    prompt = ChatPromptTemplate.from_template(template)
-
-    llm = OllamaLLM(model="llama3.1")
-
-    
-
-    augment_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt
-
-    augmented_prompt = augment_chain.invoke(question).to_string()
-
-    generate_chain =  llm | StrOutputParser()
-    response = generate_chain.invoke(augmented_prompt)
-
-    return augmented_prompt, response
-
-'''
-    
-def savePrompt(userId, chatId, initialPrompt, finalPrompt, response):
-    currentDate = datetime.now()
-    inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
-
-    try:
-        logging.info("Saving Prompt Started.")
-        conn = get_db_connection(PSQL_CONNECTION)
-        cursor = conn.cursor()
-
-        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId) VALUES (%s, %s, %s, %s, %s, %s, %s);"
-
-        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId))
-
-        conn.commit()
-    
-    except Exception as e:
-        logging.exception("Error when Saving Prompt to PostgreSQL Database!")
-        print(e)
-
-    finally:
-        cursor.close()
-        conn.close()
-        
-    logging.info("Saving Prompt Finished.")
-    return True
-
-def getInferencesById(chatId):
-
-    try:
-        conn = get_db_connection(PSQL_CONNECTION)
-        cursor = conn.cursor()
-
-        sql_query = "SELECT * FROM inferences WHERE chatId = %s;"
-
-        cursor.execute(sql_query, (chatId,))
-
-        conn.commit()
-
-        data = cursor.fetchall()
-
-        # print(data)
-
-        inferences = []
-        
-        for inference in data:
-            response_raw = inference[5]
-            response_html = markdown.markdown(response_raw)
-            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "response_html": response_html}
-            inferences.append(item)
-        
-    
-    except Exception as e:
-        logging.exception("Error when Listing Inferences to PostgreSQL Database!")
-        print(e)
-
-    finally:
-        cursor.close()
-        conn.close()
-
-    return inferences
+from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference, delete_doc_from_vectorstore
+from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt, delete_doc_from_postgresql
 
 def deleteDocumentById(filename, documentId):
 
-    delete_doc_from_postgresql(documentId)
+    delete_doc_from_postgresql(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     delete_doc_from_filesystem(filename)
 
-    delete_doc_from_vectorstore(documentId)
+    delete_doc_from_vectorstore(documentId, vector_store, LOGGING_CONFIGURATION)
 
     return True
-
-def getDocumentById(documentId):
     
-    try:
-        conn = get_db_connection(PSQL_CONNECTION)
-        cursor = conn.cursor()
-
-        sql_query = "SELECT * FROM documents WHERE documentId = %s;"
-
-        cursor.execute(sql_query, (documentId,))
-
-        conn.commit()
-
-        data = cursor.fetchall()
-
-        docs = []
-        for doc in data:
-            item = {"id": doc[0], "name": doc[1], "type": doc[2], "date": doc[3]}
-            docs.append(item)
-    
-    except Exception as e:
-        logging.exception(f"Error when retrieving Document {documentId} from PostgreSQL Database!")
-        print(e)
-
-    finally:
-        cursor.close()
-        conn.close()
-
-    return docs[0]
-
-def delete_doc_from_postgresql(documentId):
-    try:
-        logging.info(f"Deleting Document {documentId} from PostgreSQL Database.")
-        conn = get_db_connection(PSQL_CONNECTION)
-        cursor = conn.cursor()
-
-        sql_query = f"DELETE FROM documents WHERE documentId = %s;"
-
-        cursor.execute(sql_query, (documentId, ))
-
-        conn.commit()
-    
-    except Exception as e:
-        logging.exception(f"Error when deleting Document {documentId} PostgreSQL Database!")
-        print(e)
-    finally:
-        cursor.close()
-        conn.close()
-        
-    logging.info(f"Document {documentId} deleted Successfully from PostgreSQL Database.")
-
-    return True
-
 def delete_doc_from_filesystem(filename):
 
     try:
@@ -215,18 +53,6 @@ def delete_doc_from_filesystem(filename):
         print(e)
 
     logging.info(f"File {filename} deleted Successfully from File Storage.")
-    return True
-
-def delete_doc_from_vectorstore(documentId):
-    ids = []
-    try:
-        ids.append(documentId)
-        vector_store.delete(ids=ids)
-    except Exception:
-        logging.exception(f"Error when deleting Document {documentId} from Vector Store!")
-        print(e)
-    
-    logging.info(f"Document {documentId} deleted Successfully from Vector Store.")
     return True
 
 '''
@@ -429,7 +255,7 @@ DELETE DOCUMENTS FEATURE
 @app.route('/v1/documents/<documentId>', methods=['DELETE'])
 def delete_document_byId(documentId):
 
-    doc = getDocumentById(documentId)
+    doc = getDocumentById(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
     filename = doc['name']
 
     print(f"Deletig Filename:{filename}")
@@ -456,7 +282,7 @@ def post_inference():
 
     augmented_prompt, response_raw = inference(prompt, retriever)
 
-    savePrompt(userId, chatId, prompt, augmented_prompt, response_raw)
+    savePrompt(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     response_html = markdown.markdown(response_raw)
 
@@ -477,7 +303,7 @@ LIST INFERENCES By ID Feature
 @app.route('/v1/chats/<chatId>/inferences', methods=['GET'])
 def get_inferences_byChatId(chatId):
 
-    inferences = getInferencesById(chatId)
+    inferences = getInferencesById(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     return {
         "status": "success",

@@ -26,86 +26,11 @@ from langchain.schema.output_parser import StrOutputParser
 ================================================================================================
 UTILS START
 '''
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def pdf_to_vectorstore(filepath, fileId):
+from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference
+from psql_utills import get_db_connection, pdf_to_postgresql, list_documents
 
-    loader = PyPDFLoader(filepath)
-    
-    docs = loader.load()
-    ids = [str(uuid4()) for _ in range(len(docs))]
-
-    # For adding metadata to each chunk
-    for doc in docs:
-        doc.metadata["source_file"] = filepath
-        doc.metadata["file_id"] = str(fileId)
-
-
-    vector_store.add_documents(documents=docs, ids=ids)
-
-    return len(docs)
-
-def pdf_to_postgresql(filename, fileId):
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        currentDate = datetime.now()
-        insertDocEntry_sql_query = f"INSERT INTO documents(documentId, name, type, dateCreated) VALUES (%s, %s, 'PDF', %s);"
-        cursor.execute(insertDocEntry_sql_query, (fileId, filename, currentDate))
-
-        conn.commit()
- 
-    except Exception as e:
-        print("Error when storing PDF to PostgreSQL Database!")
-        print(e)
-    finally:
-        cursor.close()
-        conn.close()
-
-    return True
-        
-def list_documents():
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        sql_query = "SELECT * FROM documents;"
-
-        cursor.execute(sql_query)
-
-        conn.commit()
-
-        data = cursor.fetchall()
-        docs = []
-        for doc in data:
-            item = {"id": doc[0], "name": doc[1], "type": doc[2], "date": doc[3]}
-            docs.append(item)
-    
-    except Exception as e:
-        logging.exception("Error when Listing Documents to PostgreSQL Database!")
-        print(e)
-
-    finally:
-        cursor.close()
-        conn.close()
-
-    return docs
-
-
-def get_db_connection():
-    return psycopg2.connect(
-        dbname=PSQL_DBNAME,
-        user=PSQL_USERNAME,
-        password=PSQL_PASSWORD,
-        host=PSQL_HOST,
-        port=PSQL_PORT
-    )
-
+'''
 def inference(question):
     
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
@@ -152,13 +77,15 @@ Question: {question}
 
     return augmented_prompt, response
 
+'''
+    
 def savePrompt(userId, chatId, initialPrompt, finalPrompt, response):
     currentDate = datetime.now()
     inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
 
     try:
         logging.info("Saving Prompt Started.")
-        conn = get_db_connection()
+        conn = get_db_connection(PSQL_CONNECTION)
         cursor = conn.cursor()
 
         sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId) VALUES (%s, %s, %s, %s, %s, %s, %s);"
@@ -181,7 +108,7 @@ def savePrompt(userId, chatId, initialPrompt, finalPrompt, response):
 def getInferencesById(chatId):
 
     try:
-        conn = get_db_connection()
+        conn = get_db_connection(PSQL_CONNECTION)
         cursor = conn.cursor()
 
         sql_query = "SELECT * FROM inferences WHERE chatId = %s;"
@@ -226,7 +153,7 @@ def deleteDocumentById(filename, documentId):
 def getDocumentById(documentId):
     
     try:
-        conn = get_db_connection()
+        conn = get_db_connection(PSQL_CONNECTION)
         cursor = conn.cursor()
 
         sql_query = "SELECT * FROM documents WHERE documentId = %s;"
@@ -255,7 +182,7 @@ def getDocumentById(documentId):
 def delete_doc_from_postgresql(documentId):
     try:
         logging.info(f"Deleting Document {documentId} from PostgreSQL Database.")
-        conn = get_db_connection()
+        conn = get_db_connection(PSQL_CONNECTION)
         cursor = conn.cursor()
 
         sql_query = f"DELETE FROM documents WHERE documentId = %s;"
@@ -322,6 +249,19 @@ PSQL_HOST = "localhost"
 PSQL_PORT = 5432
 PSQL_USERNAME = "postgres"
 PSQL_PASSWORD = "toor"
+
+PSQL_CONNECTION = {
+    "psqlDB": PSQL_DBNAME,
+    "psqlUsername": PSQL_USERNAME,
+    "psqlPass": PSQL_PASSWORD,
+    "psqlHost": PSQL_HOST,
+    "psqlPort": PSQL_PORT
+}
+
+LOGGING_CONFIGURATION = {
+    "loggingObject": logging
+}
+
 '''
 CONSTANTS END
 ================================================================================================
@@ -353,7 +293,7 @@ retriever = vector_store.as_retriever(
 
 # Initialize Database
 try:
-    conn = get_db_connection()
+    conn = get_db_connection(PSQL_CONNECTION)
     cursor = conn.cursor()
     createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createDocsTable_sql_query)
@@ -430,7 +370,7 @@ def upload_file():
     file = request.files['file']
 
     # Validate Input
-    if not file or not allowed_file(file.filename):
+    if not file or not allowed_file(file.filename, ALLOWED_EXTENSIONS):
         return {
             "status": "fail",
             "message": "Invalid Input"
@@ -449,12 +389,12 @@ def upload_file():
     # Add Upload to PostgreSQL Database
     logging.info(f"{filename} Metadata saving to Database")
     fileId = str(uuid4())[:8]
-    pdf_to_postgresql(filename, fileId)
+    pdf_to_postgresql(filename, fileId, PSQL_CONNECTION)
     logging.info(f"{filename} Metadata saved to Database")
     
     # Add PDF Input to Vector Store
     logging.info(f"{filename} Embedding saving to Vector Store")
-    chunk_count = pdf_to_vectorstore(filepath, fileId)
+    chunk_count = pdf_to_vectorstore(filepath, fileId, vector_store)
     logging.info(f"{filename}'s ({chunk_count} Chunks) Embedding saved to Vector Store")
 
     # Build Response
@@ -473,7 +413,7 @@ LIST DOCUMENTS FEATURE
 @app.route('/v1/documents', methods=['GET'])
 def get_list_documents():
 
-    docs = list_documents()
+    docs = list_documents(PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     return {
         "status": "success",
@@ -514,7 +454,7 @@ def post_inference():
     prompt = req.get('question')
     logging.info(f"Prompt received: {prompt}")
 
-    augmented_prompt, response_raw = inference(prompt)
+    augmented_prompt, response_raw = inference(prompt, retriever)
 
     savePrompt(userId, chatId, prompt, augmented_prompt, response_raw)
 

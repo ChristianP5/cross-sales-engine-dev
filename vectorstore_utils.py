@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnableMap
 
+from sentence_transformers.cross_encoder import CrossEncoder
 
 
 def allowed_file(filename, allowedExtensions):
@@ -39,7 +40,7 @@ def inference_v1(question, retriever):
     
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
 Goal: Based on the retrieved context, analyze the customer’s existing technology environment, company best practices, and vendor product portfolio to recommend additional products, services, or upgrades that align with the customer’s business goals and technology stack.
-Context Provided: {context}
+Context Provided: [{context}]
 Your Tasks:
 1.	Identify potential cross-sell recommendations that complement the customer’s existing environment.
 2.	For each recommendation, provide:
@@ -72,11 +73,18 @@ Question: {question}
 
     llm = OllamaLLM(model="llama3.1")
 
-    
+    retrieved_docs_raw = retriever.invoke(question)
+    retrieved_docs = [] 
 
-    augment_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt
+    for doc in retrieved_docs_raw:
+        retrieved_docs.append(doc.page_content)
 
-    augmented_prompt = augment_chain.invoke(question).to_string()
+    retrieved_docs_ranked = rerank(question, retrieved_docs)
+
+    augmented_prompt = prompt.invoke({
+        "context": retrieved_docs_ranked[:3],
+        "question": question
+    }).to_string()
 
     generate_chain =  llm | StrOutputParser()
     response = generate_chain.invoke(augmented_prompt)
@@ -139,8 +147,16 @@ Question: {question}
     llm_1 = OllamaLLM(model="llama3.1")
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieval 1 started.")
-    context_1 = retriever.invoke(question)
+    retrieved_docs_1_raw = retriever.invoke(question)
+    retrieved_docs_1 = []
+    for docs in retrieved_docs_1_raw:
+        retrieved_docs_1.append(docs.page_content)
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieval 1 completed.")
+
+    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 started.")
+    context_1 = rerank(question, retrieved_docs_1)
+    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 completed.")
+
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 1 started.")
     augmented_prompt_1 = prompt_1.invoke({
@@ -165,11 +181,12 @@ Question: {question}
     
     Goal: Explain why did you Recommend me the given Capabilities and from the given list of our Products, which can provide those capabilities?
     
-    Retrieved Information/Context about our Customer: {context_1}
-    Retrieved Information/Context about our Products: {context_2}
+    Retrieved Information/Context about our Customer: [{context_1}]
+    Retrieved Information/Context about our Products: [{context_2}]
     Your Tasks:
-    1.	Identify potential cross-sell recommendations that complement the customer’s existing environment.
-    2.	For each recommendation, provide:
+    1.	Answer the Question: {question}
+    2.  Identify potential cross-sell recommendations that complement the customer’s existing environment.
+    3.	For each recommendation, provide:
     o   Product / Service Name
     o	Why it fits this customer (alignment with environment, needs, or gaps)
     o	Business or technical value (efficiency, performance, ROI, etc.)
@@ -193,15 +210,22 @@ Question: {question}
     •	Base all insights only on the provided context and retrieved information.
     •	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
     •	Use concise, professional, and actionable language suitable for sales enablement documentation.
-    Keep in mind that the original User's Question was: {question}
     """
     prompt_2 = ChatPromptTemplate.from_template(template_2)
 
     llm_2 = OllamaLLM(model="llama3.1")
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieve 2 started.")
-    context_2 = retriever.invoke(response_1)
+    retrieved_docs_2_raw = retriever.invoke(response_1)
+    retrieved_docs_2 = []
+    for docs in retrieved_docs_2_raw:
+        retrieved_docs_2.append(docs.page_content)
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieve 2 completed.")
+
+    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 started.")
+    context_2 = rerank(response_1, retrieved_docs_2)
+    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 completed.")
+
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 2 started.")
     augmented_prompt_2 = prompt_2.invoke({
@@ -232,3 +256,16 @@ def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
     
     loggingConfig["loggingObject"].info(f"Document {documentId} deleted Successfully from Vector Store.")
     return True
+
+def rerank(question, docs):
+    model = CrossEncoder("cross-encoder/stsb-distilroberta-base")
+ 
+    ranks = model.rank(question, docs)
+    docs_ranked = []
+
+    for rank in ranks:
+        if(rank["score"] >= 0.5):
+            docs_ranked.append(docs[rank["corpus_id"]])
+
+    print(docs_ranked)
+    return docs_ranked

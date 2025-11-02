@@ -6,3 +6,4 @@ langchain-community==0.3.30
 pypdf==6.1.0
 psycopg2-binary
 markdown
+sentence-transformers

@@ -112,7 +112,7 @@ vector_store = Chroma(
     )
 
 retriever = vector_store.as_retriever(
-    search_type="mmr", search_kwargs={"k": 1, "fetch_k": 5}
+    search_type="mmr", search_kwargs={"k": 5, "fetch_k": 10}
 )
 
 # Initialize Database

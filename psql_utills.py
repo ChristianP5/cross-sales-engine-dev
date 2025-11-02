@@ -66,7 +66,7 @@ def list_documents(psqlConnectionConfig, loggingConfig):
     return docs
 
 
-def savePrompt(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig):
+def savePrompt_v1(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig):
     currentDate = datetime.now()
     inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
 
@@ -91,7 +91,6 @@ def savePrompt(userId, chatId, initialPrompt, finalPrompt, response, psqlConnect
         
     loggingConfig["loggingObject"].info("Saving Prompt Finished.")
     return True
-
 
 def getInferencesById(chatId, psqlConnectionConfig, loggingConfig):
 
@@ -180,4 +179,31 @@ def delete_doc_from_postgresql(documentId, psqlConnectionConfig, loggingConfig):
         
     loggingConfig["loggingObject"].info(f"Document {documentId} deleted Successfully from PostgreSQL Database.")
 
+    return True
+
+'''
+Inference V2 - Utils
+'''
+def savePrompt_v2(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId):
+    
+    try:
+        loggingConfig["loggingObject"].info("[V2] Saving Prompt Started.")
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+
+        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId))
+
+        conn.commit()
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].exception("Error when Saving Prompt to PostgreSQL Database!")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+        
+    loggingConfig["loggingObject"].info("Saving Prompt Finished.")
     return True

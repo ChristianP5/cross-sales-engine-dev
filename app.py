@@ -27,19 +27,17 @@ from langchain.schema.output_parser import StrOutputParser
 UTILS START
 '''
 
-from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference, delete_doc_from_vectorstore
-from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt, delete_doc_from_postgresql
+from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2
+from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql
+from common_utils import generateId
 
 def deleteDocumentById(filename, documentId):
-
     delete_doc_from_postgresql(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
-
     delete_doc_from_filesystem(filename)
-
     delete_doc_from_vectorstore(documentId, vector_store, LOGGING_CONFIGURATION)
-
     return True
-    
+
+
 def delete_doc_from_filesystem(filename):
 
     try:
@@ -133,6 +131,9 @@ try:
     createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createChatsTable_sql_query)
 
+    createInferencesV2Table_sql_query = "CREATE TABLE IF NOT EXISTS inferencesV2(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt1 TEXT, finalPrompt2 TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    cursor.execute(createInferencesV2Table_sql_query)
+
     conn.commit()
 
     logging.info("Database Server Initalized")
@@ -142,10 +143,6 @@ except Exception as e:
 finally:
     cursor.close()
     conn.close()
-
-
-
-
 
 
 '''
@@ -267,10 +264,10 @@ def delete_document_byId(documentId):
     }
 
 '''
-INFERENCE FEATURE
+INFERENCE V1 FEATURE
 '''
 @app.route('/v1/inference', methods=['POST'])
-def post_inference():
+def post_inference_v1():
 
     req = request.get_json()
 
@@ -280,9 +277,9 @@ def post_inference():
     prompt = req.get('question')
     logging.info(f"Prompt received: {prompt}")
 
-    augmented_prompt, response_raw = inference(prompt, retriever)
+    augmented_prompt, response_raw = inference_v1(prompt, retriever)
 
-    savePrompt(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    savePrompt_v1(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     response_html = markdown.markdown(response_raw)
 
@@ -296,6 +293,39 @@ def post_inference():
             "response_html": response_html,
         }
     }
+
+'''
+INFERENCE V2 FEATURE
+'''
+@app.route('/v2/inference', methods=['POST'])
+def post_inference_v2():
+
+    req = request.get_json()
+
+    userId = "TEST_USER"
+    chatId = "TEST_CHAT"
+
+    prompt = req.get('question')
+    inferenceId = generateId(8)
+
+    response_raw, augmented_prompt_1, augmented_prompt_2 = inference_v2(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
+
+    # savePrompt_v2(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId)
+
+    response_html = markdown.markdown(response_raw)
+
+    return {
+        "status": "success",
+        "message": "Inference Successfully!",
+        "data": {
+            "user_prompt": prompt,
+            "augmented_prompt_1": augmented_prompt_1,
+            "augmeented_prompt_2": augmented_prompt_2,
+            "response": response_raw,
+            "response_html": response_html,
+        }
+    }
+
 
 '''
 LIST INFERENCES By ID Feature

@@ -1,4 +1,5 @@
 from flask import Flask,render_template,send_from_directory
+import requests
 
 import os
 from flask import flash, request, redirect, url_for
@@ -86,6 +87,10 @@ LOGGING_CONFIGURATION = {
     "loggingObject": logging
 }
 
+OLLAMA_SERVER_CONF = {
+    "base_url": "http://localhost:11434"
+}
+
 '''
 CONSTANTS END
 ================================================================================================
@@ -104,7 +109,7 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Initialize Vector Store
-embeddings = OllamaEmbeddings(model="mxbai-embed-large")
+embeddings = OllamaEmbeddings(model="mxbai-embed-large", keep_alive=-1)
 vector_store = Chroma(
         collection_name=CHROMA_COLLECTION,
         embedding_function=embeddings,
@@ -144,6 +149,14 @@ finally:
     cursor.close()
     conn.close()
 
+# Initialize Ollama Server
+try:
+    llm = OllamaLLM(model='llama3.1', keep_alive=-1)
+    llm.invoke("")
+    logging.info("Ollama Server Initalized")
+except Exception as e:
+    logging.exception("Error when Initializing Ollama Server")
+    print(e)
 
 '''
 INIT END
@@ -351,3 +364,6 @@ API SERVER END
 logging.info("Web Server Initalized")
 app.run(host="0.0.0.0", port=80)
 logging.info("Web Server Stopped")
+
+requests.post(f"{OLLAMA_SERVER_CONF['base_url']}/api/generate", json={"model": "llama3.1", "keep_alive": 0})
+logging.info("Ollama Server Stopped")

@@ -8,7 +8,7 @@
 - Python 3.11
 - Ollama
     - Embedding Model: mxbai-embed-large
-    - LLM: llama3
+    - LLM: llama3.1
 
 ## To Start
 
@@ -20,12 +20,13 @@
 > pip install -r requirements.txt
 
 **When Starting**
+> . ./.venv/bin/activate
 > python3 app.py
 
 **When Stopping**
 > ps aux
 > 
-> kill <pid>
+> kill PID
 
 ## Available Endpoints
 - /inventory

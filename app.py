@@ -366,4 +366,5 @@ app.run(host="0.0.0.0", port=80)
 logging.info("Web Server Stopped")
 
 requests.post(f"{OLLAMA_SERVER_CONF['base_url']}/api/generate", json={"model": "llama3.1", "keep_alive": 0})
+requests.post(f"{OLLAMA_SERVER_CONF['base_url']}/api/generate", json={"model": "mxbai-embed-large", "keep_alive": 0})
 logging.info("Ollama Server Stopped")

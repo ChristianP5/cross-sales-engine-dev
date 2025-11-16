@@ -65,6 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             disableButton(chatSubmitBtn)
 
             chatResponseDocsSection.style.display = "none"
+            
+            const chatResponseDocsList = document.querySelector("#chat-response-docs-list")
             chatResponseDocsList.innerHTML = ""
 
             const question = document.querySelector('#input-question').value
@@ -101,8 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 2.a)
             chatResponseDocsSection.style.display = ""
-            const chatResponseDocsList = document.querySelector("#chat-response-docs-list")
-            
 
             const retrieved_docs = data.data.docs
 

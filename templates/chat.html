@@ -17,6 +17,7 @@
       crossorigin="anonymous"
     ></script>
     <script src="/file/chat/chat.js"></script>
+    <link rel="stylesheet" href="/file/chat/chat.css" />
   </head>
   <body>
     <main class="container">
@@ -56,7 +57,28 @@
       <section class="row" id="chat-response-sect-header">
         <h1>Response</h1>
       </section>
-      <section class="row" id="chat-response-sect">
+      <section class="row" id="chat-response-docs-sect">
+        <div class="col-1 align-content-center"><p>Sources:</p></div>
+
+        <div
+          id="chat-response-docs-list"
+          class="col-11 d-flex flex-wrap gap-2 mt-2 align-items-center"
+        >
+          <!-- Item Start -->
+          <!--
+          <div class="source-box d-flex align-items-center p-2">
+            <img
+              class="source-icon"
+              src="/file/_assets/new-document.png"
+              alt=""
+            />
+            <span class="ms-2">document1.pdf</span>
+          </div>
+          -->
+          <!-- Item End -->
+        </div>
+      </section>
+      <section class="row mt-2" id="chat-response-sect">
         The response will be shown here...
       </section>
     </main>

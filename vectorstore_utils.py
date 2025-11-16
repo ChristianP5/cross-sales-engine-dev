@@ -38,6 +38,8 @@ INFERENCE V1
 
 def inference_v1(question, retriever):
     
+    RETRIEVED_AMM = 3
+
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
 Goal: Based on the retrieved context, analyze the customer’s existing technology environment, company best practices, and vendor product portfolio to recommend additional products, services, or upgrades that align with the customer’s business goals and technology stack.
 Context Provided: [{context}]
@@ -73,23 +75,48 @@ Question: {question}
 
     llm = OllamaLLM(model="llama3.1")
 
+    # Retrieval
     retrieved_docs_raw = retriever.invoke(question)
+    
+    #  Prepare for Reranking
     retrieved_docs = [] 
 
     for doc in retrieved_docs_raw:
         retrieved_docs.append(doc.page_content)
 
-    retrieved_docs_ranked = rerank(question, retrieved_docs)
+    retrieved_docs_ranked, docs_ranked_indices, docs_ranked_scores = rerank(question, retrieved_docs)
 
+    # Get the IDs of the Reranked Documents
+    retrieved_docs_ranked_ids = []
+    retrieved_docs_ranked_scores = []
+
+    for i in docs_ranked_indices[:RETRIEVED_AMM]:
+        
+        id = retrieved_docs_raw[i].metadata['file_id']
+
+        retrieved_docs_ranked_ids.append(id)
+
+    for score_raw in docs_ranked_scores[:RETRIEVED_AMM]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    contexts = {
+        "ids": retrieved_docs_ranked_ids,
+        "scores": retrieved_docs_ranked_scores
+    }
+
+    # Augment
     augmented_prompt = prompt.invoke({
-        "context": retrieved_docs_ranked[:3],
+        "context": retrieved_docs_ranked[:RETRIEVED_AMM],
         "question": question
     }).to_string()
 
     generate_chain =  llm | StrOutputParser()
     response = generate_chain.invoke(augmented_prompt)
 
-    return augmented_prompt, response
+    
+                                     
+    return augmented_prompt, response, contexts
 
 
 def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
@@ -111,6 +138,8 @@ INFERENCE V2
 
 def inference_v2(question, retriever, loggingConfig, inferenceId):
     
+    RETRIEVED_AMM_1 = 3
+    RETRIEVED_AMM_2 = 3
 
     '''
     Prompt #1
@@ -154,7 +183,23 @@ Question: {question}
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieval 1 completed.")
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 started.")
-    context_1 = rerank(question, retrieved_docs_1)
+    context_1, docs_ranked_indices_1, docs_ranked_scores_1 = rerank(question, retrieved_docs_1)
+
+    # Get the IDs of the Reranked Documents
+    retrieved_docs_ranked_ids = []
+    retrieved_docs_ranked_scores = []
+
+    for score_raw in docs_ranked_scores_1[:RETRIEVED_AMM_1]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    for i in docs_ranked_indices_1[:RETRIEVED_AMM_1]:
+        
+        id = retrieved_docs_1_raw[i].metadata['file_id']
+
+        retrieved_docs_ranked_ids.append(id)
+            
+
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 completed.")
 
 
@@ -223,7 +268,17 @@ Question: {question}
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieve 2 completed.")
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 started.")
-    context_2 = rerank(response_1, retrieved_docs_2)
+    context_2, docs_ranked_indices_2, docs_ranked_scores_2 = rerank(response_1, retrieved_docs_2)
+
+    for score_raw in docs_ranked_scores_2[:RETRIEVED_AMM_2]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    for i in docs_ranked_indices_2[:RETRIEVED_AMM_2]:
+        
+        id = retrieved_docs_2_raw[i].metadata['file_id']
+        retrieved_docs_ranked_ids.append(id)
+
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 completed.")
 
 
@@ -242,7 +297,13 @@ Question: {question}
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 2 completed.")
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Pipeline completed.")
-    return response_2, augmented_prompt_1, augmented_prompt_2, 
+    
+    contexts = {
+        "ids": retrieved_docs_ranked_ids,
+        "scores": retrieved_docs_ranked_scores
+    }
+    
+    return response_2, augmented_prompt_1, augmented_prompt_2, contexts
 
 
 def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
@@ -262,10 +323,12 @@ def rerank(question, docs):
  
     ranks = model.rank(question, docs)
     docs_ranked = []
+    docs_ranked_indices = []
+    docs_ranked_scores = []
 
     for rank in ranks:
-        if(rank["score"] >= 0.5):
-            docs_ranked.append(docs[rank["corpus_id"]])
+        docs_ranked.append(docs[rank["corpus_id"]])
+        docs_ranked_indices.append(rank["corpus_id"])
+        docs_ranked_scores.append(rank["score"])
 
-    print(docs_ranked)
-    return docs_ranked
+    return docs_ranked, docs_ranked_indices, docs_ranked_scores

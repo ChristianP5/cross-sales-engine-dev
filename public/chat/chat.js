@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     /**
      * 1) Implement Toggle Inference Version feature
      * 2) Implement Inference feature
+     * 2.a) List Retrieval feature
      * 
      */
 
@@ -47,6 +48,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.textContent = "Submit"
         button.disabled = false
     }
+
+    // 2.a) Start
+    const chatResponseDocsSection = document.querySelector("#chat-response-docs-sect")
+    chatResponseDocsSection.style.display = "none"
+    // 2.a) End
+
     const inferencefeature = async () => {
         const chatSubmitBtn = document.querySelector('#chat-submit-btn')
         chatSubmitBtn.addEventListener('click', async (e) => {
@@ -87,6 +94,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             responseSection.innerHTML = chatResponse
 
             enableButton(chatSubmitBtn)
+
+            // 2.a)
+            chatResponseDocsSection.style.display = ""
+            const chatResponseDocsList = document.querySelector("#chat-response-docs-list")
+
+            const retrieved_docs = data.data.docs
+
+            retrieved_docs.forEach( doc => {
+                const item = document.createElement("div")
+                item.classList.add("source-box", "d-flex", "align-items-center", "p-2")
+                
+                var image_src = "new-document.png"
+
+                if(doc.type == "PDF"){
+                    image_src = "pdf.png"
+                }
+
+                item.innerHTML = `
+                    <img
+                    class="source-icon"
+                    src="/file/_assets/${image_src}"
+                    alt=""
+                    />
+                    <span class="ms-2">${doc.name}</span>d
+                `
+
+                chatResponseDocsList.appendChild(item)
+
+            } )
+
+
 
         })
     }

@@ -91,6 +91,9 @@ OLLAMA_SERVER_CONF = {
     "base_url": "http://localhost:11434"
 }
 
+
+
+
 '''
 CONSTANTS END
 ================================================================================================
@@ -127,7 +130,7 @@ try:
     createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createDocsTable_sql_query)
 
-    createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesTable_sql_query)
 
     createUsersTable_sql_query = "CREATE TABLE IF NOT EXISTS users(userId VARCHAR(255) PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
@@ -136,7 +139,7 @@ try:
     createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createChatsTable_sql_query)
 
-    createInferencesV2Table_sql_query = "CREATE TABLE IF NOT EXISTS inferencesV2(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt1 TEXT, finalPrompt2 TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    createInferencesV2Table_sql_query = "CREATE TABLE IF NOT EXISTS inferencesV2(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt1 TEXT, finalPrompt2 TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesV2Table_sql_query)
 
     conn.commit()
@@ -290,9 +293,18 @@ def post_inference_v1():
     prompt = req.get('question')
     logging.info(f"Prompt received: {prompt}")
 
-    augmented_prompt, response_raw = inference_v1(prompt, retriever)
+    augmented_prompt, response_raw, contexts = inference_v1(prompt, retriever)
 
-    savePrompt_v1(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    contexts_ids = contexts["ids"]
+    contexts_scores = contexts["scores"]
+
+    docs = []
+    for id in contexts_ids:
+        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        docs.append(doc)
+    
+
+    savePrompt_v1(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, contexts_ids, contexts_scores)
 
     response_html = markdown.markdown(response_raw)
 
@@ -304,6 +316,7 @@ def post_inference_v1():
             "final_prompt": augmented_prompt,
             "response": response_raw,
             "response_html": response_html,
+            "docs": docs
         }
     }
 
@@ -321,9 +334,18 @@ def post_inference_v2():
     prompt = req.get('question')
     inferenceId = generateId(8)
 
-    response_raw, augmented_prompt_1, augmented_prompt_2 = inference_v2(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
+    response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
 
-    # savePrompt_v2(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId)
+    contexts_ids = contexts["ids"]
+    contexts_scores = contexts["scores"]
+
+    docs = []
+    for id in contexts_ids:
+        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        docs.append(doc)
+    
+
+    savePrompt_v2(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
 
     response_html = markdown.markdown(response_raw)
 
@@ -336,12 +358,13 @@ def post_inference_v2():
             "augmeented_prompt_2": augmented_prompt_2,
             "response": response_raw,
             "response_html": response_html,
+            "docs": docs
         }
     }
 
 
 '''
-LIST INFERENCES By ID Feature
+LIST INFERENCES By Chat ID Feature
 '''
 @app.route('/v1/chats/<chatId>/inferences', methods=['GET'])
 def get_inferences_byChatId(chatId):

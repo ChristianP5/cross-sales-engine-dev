@@ -66,7 +66,7 @@ def list_documents(psqlConnectionConfig, loggingConfig):
     return docs
 
 
-def savePrompt_v1(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig):
+def savePrompt_v1(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, context_ids, context_scores):
     currentDate = datetime.now()
     inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
 
@@ -75,9 +75,9 @@ def savePrompt_v1(userId, chatId, initialPrompt, finalPrompt, response, psqlConn
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
-        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
 
-        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId))
+        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
 
         conn.commit()
     
@@ -113,7 +113,7 @@ def getInferencesById(chatId, psqlConnectionConfig, loggingConfig):
         for inference in data:
             response_raw = inference[5]
             response_html = markdown.markdown(response_raw)
-            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "response_html": response_html}
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html}
             inferences.append(item)
         
     
@@ -184,16 +184,18 @@ def delete_doc_from_postgresql(documentId, psqlConnectionConfig, loggingConfig):
 '''
 Inference V2 - Utils
 '''
-def savePrompt_v2(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId):
-    
+def savePrompt_v2(userId, chatId, initialPrompt, augmentedPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores):
+    currentDate = datetime.now()
+    inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
+
     try:
         loggingConfig["loggingObject"].info("[V2] Saving Prompt Started.")
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
-        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId) VALUES (%s, %s, %s, %s, %s, %s, %s);"
+        sql_query = f"INSERT INTO inferencesV2(inferenceId, initialPrompt, finalPrompt1, finalPrompt2, dateCreated, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
 
-        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId))
+        cursor.execute(sql_query, (inferenceId, initialPrompt, augmentedPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
 
         conn.commit()
     

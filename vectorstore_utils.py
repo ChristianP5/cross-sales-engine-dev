@@ -9,6 +9,8 @@ from langchain.schema.runnable import RunnableMap
 
 from sentence_transformers.cross_encoder import CrossEncoder
 
+import requests
+import os
 
 def allowed_file(filename, allowedExtensions):
     return '.' in filename and \
@@ -113,8 +115,6 @@ Question: {question}
 
     generate_chain =  llm | StrOutputParser()
     response = generate_chain.invoke(augmented_prompt)
-
-    
                                      
     return augmented_prompt, response, contexts
 
@@ -306,6 +306,125 @@ Question: {question}
     return response_2, augmented_prompt_1, augmented_prompt_2, contexts
 
 
+'''
+INFERENCE V3
+'''
+
+def inference_v3(question, retriever, loggingConfig, inferenceId):
+    
+    RETRIEVED_AMM = 3
+
+    template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
+Goal: Based on the retrieved context, analyze the customer’s existing technology environment, company best practices, and vendor product portfolio to recommend additional products, services, or upgrades that align with the customer’s business goals and technology stack.
+Context Provided: [{context}]
+Your Tasks:
+1.	Identify potential cross-sell recommendations that complement the customer’s existing environment.
+2.	For each recommendation, provide:
+o   Product / Service Name
+o	Why it fits this customer (alignment with environment, needs, or gaps)
+o	Business or technical value (efficiency, performance, ROI, etc.)
+o	Level of confidence (High / Medium / Low)
+3.	Highlight any dependencies, upgrade paths, or pre-requisites if applicable.
+4.	Suggest how to position the recommendation during a sales conversation.
+Output Format (Markdown):
+### Brief Summary of Customer's Environment:
+[1 Paragraph summarizing the Customer's Environment]
+### Cross-Sell Recommendations
+#### 1. [Product Name]
+   * **Fit Rationale:** …
+   * **Value Proposition:** …
+   * **Confidence Level:** …
+   * **Sales Positioning Tip:** …
+
+#### 2. [Product Name]
+   * ...
+Constraints:
+•	Base all insights only on the provided context and retrieved information of Our Products.
+•	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
+•	Use concise, professional, and actionable language suitable for sales enablement documentation.
+Question: {question}
+"""
+ 
+    prompt = ChatPromptTemplate.from_template(template)
+
+    # Retrieval
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
+    retrieved_docs_raw = retriever.invoke(question)
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
+    
+    #  Prepare for Reranking
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Rerankimg 1 start.")
+    retrieved_docs = [] 
+
+    for doc in retrieved_docs_raw:
+        retrieved_docs.append(doc.page_content)
+
+    retrieved_docs_ranked, docs_ranked_indices, docs_ranked_scores = rerank(question, retrieved_docs)
+
+    # Get the IDs of the Reranked Documents
+    retrieved_docs_ranked_ids = []
+    retrieved_docs_ranked_scores = []
+
+    for i in docs_ranked_indices[:RETRIEVED_AMM]:
+        
+        id = retrieved_docs_raw[i].metadata['file_id']
+
+        retrieved_docs_ranked_ids.append(id)
+
+    for score_raw in docs_ranked_scores[:RETRIEVED_AMM]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    contexts = {
+        "ids": retrieved_docs_ranked_ids,
+        "scores": retrieved_docs_ranked_scores
+    }
+
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Reranking 1 finished.")
+
+    
+    # Augment
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
+    augmented_prompt = prompt.invoke({
+        "context": retrieved_docs_ranked[:RETRIEVED_AMM],
+        "question": question
+    }).to_string()
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
+
+    # Generate
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Generate 1 start.")
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")  # or hardcode it directly
+    AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AZURE_API_KEY}"
+    }
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{augmented_prompt}"
+            }
+        ],
+        "max_completion_tokens": 40000,
+        "model": "o4-mini"
+    }
+
+    response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+
+    response = response_raw.json()["choices"][0]["message"]["content"]
+
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Generate 1 finished.")
+
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Pipeline completed.")
+    
+                                     
+    return response, augmented_prompt, contexts
+
+
+
 def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
     ids = []
     try:
@@ -332,3 +451,4 @@ def rerank(question, docs):
         docs_ranked_scores.append(rank["score"])
 
     return docs_ranked, docs_ranked_indices, docs_ranked_scores
+

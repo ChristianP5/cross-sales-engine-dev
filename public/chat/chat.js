@@ -10,17 +10,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     var inferenceVersion = 1
     const inferenceVersion1Button = document.querySelector("#btn-v1")
     const inferenceVersion2Button = document.querySelector("#btn-v2")
+    const inferenceVersion3Button = document.querySelector("#btn-v3")
 
     const updateVersionButtons = async (inferenceVersion) => {
+        const versionButtons = document.querySelectorAll('[id^="btn-"]')
+        versionButtons.forEach(item => {
+            item.classList.replace("btn-primary", "btn-secondary")
+        })
         if(inferenceVersion == 1){
             inferenceVersion1Button.classList.replace("btn-secondary", "btn-primary")
-            inferenceVersion2Button.classList.replace("btn-primary", "btn-secondary")
         }
         
         if(inferenceVersion == 2){
-           inferenceVersion1Button.classList.replace("btn-primary", "btn-secondary")
            inferenceVersion2Button.classList.replace("btn-secondary", "btn-primary") 
         }
+
+        if(inferenceVersion == 3){
+            inferenceVersion3Button.classList.replace("btn-secondary", "btn-primary") 
+        }
+
     }
     updateVersionButtons(inferenceVersion)
 
@@ -35,6 +43,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault()
 
         inferenceVersion = 2;
+        updateVersionButtons(inferenceVersion)
+    })
+
+    inferenceVersion3Button.addEventListener("click", async (e) => {
+        e.preventDefault()
+
+        inferenceVersion = 3;
         updateVersionButtons(inferenceVersion)
     })
 
@@ -65,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             disableButton(chatSubmitBtn)
 
             chatResponseDocsSection.style.display = "none"
-            
+
             const chatResponseDocsList = document.querySelector("#chat-response-docs-list")
             chatResponseDocsList.innerHTML = ""
 

@@ -412,9 +412,12 @@ Question: {question}
         "model": "o4-mini"
     }
 
-    response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
-
-    response = response_raw.json()["choices"][0]["message"]["content"]
+    try:
+        response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        response = response_raw.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Something went wrong when inferencing through the Azure AI Model Inference API.")
+        print(e)
 
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Generate 1 finished.")
 

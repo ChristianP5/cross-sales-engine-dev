@@ -59,9 +59,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatSubmitBtn.addEventListener('click', async (e) => {
             e.preventDefault()
 
+            // Initial States
             const responseSection = document.querySelector('#chat-response-sect')
             responseSection.textContent = "Please wait..."
             disableButton(chatSubmitBtn)
+
+            chatResponseDocsSection.style.display = "none"
+            chatResponseDocsList.innerHTML = ""
 
             const question = document.querySelector('#input-question').value
 
@@ -98,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 2.a)
             chatResponseDocsSection.style.display = ""
             const chatResponseDocsList = document.querySelector("#chat-response-docs-list")
-            chatResponseDocsList.innerHTML = ""
+            
 
             const retrieved_docs = data.data.docs
 

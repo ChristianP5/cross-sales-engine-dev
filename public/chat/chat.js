@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 2.a)
             chatResponseDocsSection.style.display = ""
             const chatResponseDocsList = document.querySelector("#chat-response-docs-list")
+            chatResponseDocsList.innerHTML = ""
 
             const retrieved_docs = data.data.docs
 

@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     src="/file/_assets/${image_src}"
                     alt=""
                     />
-                    <span class="ms-2">${doc.name}</span>d
+                    <span class="ms-2">${doc.name}</span>
                 `
 
                 chatResponseDocsList.appendChild(item)

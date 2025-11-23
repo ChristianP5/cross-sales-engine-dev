@@ -327,7 +327,7 @@ Example Output Format (Markdown):
    * ...
 Constraints:
 •	Base all insights only on the provided context and retrieved information.
-•	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
+•	Do not hallucinate unavailable data; if the provided context doesn't contain the relevant information to answer the question, state what additional data would improve accuracy.
 •	Use concise, professional, and actionable language suitable for sales enablement documentation.
 Question: {question}
 """

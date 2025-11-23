@@ -469,11 +469,12 @@ def chat_v1(prompt, retriever, loggingConfig, inferenceId):
     
     if "cross-sell" in response:
         loggingConfig["loggingObject"].info(f"Inference {inferenceId} is classified as CROSS-SELL")
-        response_raw, augmented_prompt, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId)
+        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId)
+        augmented_prompt = augmented_prompt_2
+        
     else:
         loggingConfig["loggingObject"].info(f"Inference {inferenceId} is classified as OTHERS")
-        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId)
-        augmented_prompt = augmented_prompt_2
+        response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId)
 
     return response_raw, augmented_prompt, contexts
 

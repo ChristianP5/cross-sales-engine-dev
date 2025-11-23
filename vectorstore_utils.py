@@ -40,7 +40,7 @@ INFERENCE V1
 
 def inference_v1(question, retriever):
     
-    RETRIEVED_AMM = 3
+    RETRIEVED_AMM = 5
 
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
 Goal: Based on the retrieved context, analyze the customer’s existing technology environment, company best practices, and vendor product portfolio to recommend additional products, services, or upgrades that align with the customer’s business goals and technology stack.
@@ -138,8 +138,8 @@ INFERENCE V2
 
 def inference_v2(question, retriever, loggingConfig, inferenceId):
     
-    RETRIEVED_AMM_1 = 3
-    RETRIEVED_AMM_2 = 3
+    RETRIEVED_AMM_1 = 5
+    RETRIEVED_AMM_2 = 5
 
     '''
     Prompt #1
@@ -312,7 +312,7 @@ INFERENCE V3
 
 def inference_v3(question, retriever, loggingConfig, inferenceId):
     
-    RETRIEVED_AMM = 3
+    RETRIEVED_AMM = 5
 
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
 Goal: Answer the Question according to the provided Context

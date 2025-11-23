@@ -28,7 +28,7 @@ from langchain.schema.output_parser import StrOutputParser
 UTILS START
 '''
 
-from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2, inference_v3
+from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2, inference_v3, chat_v1
 from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql
 from common_utils import generateId
 
@@ -333,6 +333,7 @@ def post_inference_v2():
 
     prompt = req.get('question')
     inferenceId = generateId(8)
+    logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
     response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
 
@@ -375,6 +376,7 @@ def post_inference_v3():
 
     prompt = req.get('question')
     inferenceId = generateId(8)
+    logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
     response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
 
@@ -403,6 +405,47 @@ def post_inference_v3():
         }
     }
 
+'''
+CHAT V1 FEATURE
+'''
+@app.route('/v1/chat', methods=['POST'])
+def post_chat_v1():
+
+    req = request.get_json()
+
+    userId = "TEST_USER"
+    chatId = "TEST_CHAT"
+
+    prompt = req.get('question')
+    inferenceId = generateId(8)
+    logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
+
+    response_raw, augmented_prompt, contexts = chat_v1(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
+
+    contexts_ids = contexts["ids"]
+    contexts_scores = contexts["scores"]
+
+    docs = []
+    for id in contexts_ids:
+        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        docs.append(doc)
+    
+
+    # savePrompt_v3(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
+
+    response_html = markdown.markdown(response_raw)
+
+    return {
+        "status": "success",
+        "message": "Chat Successfully!",
+        "data": {
+            "user_prompt": prompt,
+            "augmented_prompt": augmented_prompt,
+            "response": response_raw,
+            "response_html": response_html,
+            "docs": docs
+        }
+    }
 
 '''
 LIST INFERENCES By Chat ID Feature

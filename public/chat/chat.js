@@ -8,9 +8,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 1)
     var inferenceVersion = 1
+    var inferenceMode = "inference"
     const inferenceVersion1Button = document.querySelector("#btn-v1")
     const inferenceVersion2Button = document.querySelector("#btn-v2")
     const inferenceVersion3Button = document.querySelector("#btn-v3")
+    const chatVersion1Button = document.querySelector("#btn-c-v1")
 
     const updateVersionButtons = async (inferenceVersion) => {
         const versionButtons = document.querySelectorAll('[id^="btn-"]')
@@ -29,6 +31,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             inferenceVersion3Button.classList.replace("btn-secondary", "btn-primary") 
         }
 
+        if(inferenceMode == "chat"){
+            chatVersion1Button.classList.replace("btn-secondary", "btn-primary") 
+        }
+
     }
     updateVersionButtons(inferenceVersion)
 
@@ -36,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault()
 
         inferenceVersion = 1;
+        inferenceMode = "inference"
         updateVersionButtons(inferenceVersion)
     })
 
@@ -43,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault()
 
         inferenceVersion = 2;
+        inferenceMode = "inference"
         updateVersionButtons(inferenceVersion)
     })
 
@@ -50,6 +58,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault()
 
         inferenceVersion = 3;
+        inferenceMode = "inference"
+        updateVersionButtons(inferenceVersion)
+    })
+
+    chatVersion1Button.addEventListener("click", async (e) => {
+        e.preventDefault()
+
+        inferenceVersion = 0;
+        inferenceMode = "chat"
         updateVersionButtons(inferenceVersion)
     })
 
@@ -91,9 +108,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 question: question
             })
 
-            console.log(formData)
+            var targetEndpoint = ""
+            if(inferenceMode == "inference"){
+                targetEndpoint = `/v${inferenceVersion}/inference`
+            }else if(inferenceMode == "chat"){
+                targetEndpoint = `/v1/chat`
+            }
 
-            const targetEndpoint = `/v${inferenceVersion}/inference`
+            
             const result = await fetch(targetEndpoint, {
                 method: 'POST',
                 headers: {

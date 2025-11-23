@@ -393,7 +393,7 @@ Question: {question}
 
     # Generate
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Generate 1 start.")
-    AZURE_API_KEY = os.getenv("AZURE_API_KEY")  # or hardcode it directly
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
 
     headers = {
@@ -455,3 +455,76 @@ def rerank(question, docs):
 
     return docs_ranked, docs_ranked_indices, docs_ranked_scores
 
+def chat_v1(prompt, retriever, loggingConfig, inferenceId):
+
+    # 1) Classify Prompt
+    # 2) Generate Response
+
+    # 1)
+    classifications = {
+        "cross-sell": "Question asks to perform Crosselling",
+        "others": "Question does not ask to perform Cross-Selling"
+    }
+    response = questionClassifier(prompt, classifications, inferenceId, loggingConfig)
+    
+    if "cross-sell" in response:
+        loggingConfig["loggingObject"].info(f"Inference {inferenceId} is classified as CROSS-SELL")
+        response_raw, augmented_prompt, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId)
+    else:
+        loggingConfig["loggingObject"].info(f"Inference {inferenceId} is classified as OTHERS")
+        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId)
+        augmented_prompt = augmented_prompt_2
+
+    return response_raw, augmented_prompt, contexts
+
+def questionClassifier(question, classifications, inferenceId, loggingConfig):
+    
+    classifications_list = "\n".join([f"- {key}: {value}" for key,value in classifications.items()])
+    template ="""
+Read the given Question and Answer only the Key of the Clasification from one of the following List of Classifications:
+{classifications}
+
+Example Question #1: What is GCP?
+Response #1: others
+
+Example Question #2: What can I recommend to Company ABC?
+Response #2: cross-sell
+
+Question: {question}
+"""
+
+    prompt = ChatPromptTemplate.from_template(template)
+
+    final_prompt = prompt.invoke({'question': question, 'classifications': classifications_list}).to_string()
+    #  print(final_prompt)
+
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Question Classification start.")
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+    AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AZURE_API_KEY}"
+    }
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{final_prompt}"
+            }
+        ],
+        "max_completion_tokens": 40000,
+        "model": "o4-mini"
+    }
+
+    try:
+        response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        # print(response_raw.json())
+        response = response_raw.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Something went wrong when performing Questin Classification through the Azure AI Model Inference API.")
+        print(e)
+
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Question Classification completed.")
+    return response

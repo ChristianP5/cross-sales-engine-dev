@@ -449,8 +449,8 @@ def chat_v1(prompt, retriever, loggingConfig, inferenceId):
 
     # 1)
     classifications = {
-        "cross-sell": "Question asks to perform Crosselling",
-        "others": "Question does not ask to perform Cross-Selling"
+        "cross-sell": "Question instructs to perform Cross Selling",
+        "others": "Question does not instruct to perform Cross-Selling"
     }
     response = questionClassifier(prompt, classifications, inferenceId, loggingConfig)
     

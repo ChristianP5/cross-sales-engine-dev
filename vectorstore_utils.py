@@ -315,31 +315,18 @@ def inference_v3(question, retriever, loggingConfig, inferenceId):
     RETRIEVED_AMM = 3
 
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
-Goal: Based on the retrieved context, analyze the customer’s existing technology environment, company best practices, and vendor product portfolio to recommend additional products, services, or upgrades that align with the customer’s business goals and technology stack.
+Goal: Answer the Question according to the provided Context
 Context Provided: [{context}]
-Your Tasks:
-1.	Identify potential cross-sell recommendations that complement the customer’s existing environment.
-2.	For each recommendation, provide:
-o   Product / Service Name
-o	Why it fits this customer (alignment with environment, needs, or gaps)
-o	Business or technical value (efficiency, performance, ROI, etc.)
-o	Level of confidence (High / Medium / Low)
-3.	Highlight any dependencies, upgrade paths, or pre-requisites if applicable.
-4.	Suggest how to position the recommendation during a sales conversation.
-Output Format (Markdown):
-### Brief Summary of Customer's Environment:
-[1 Paragraph summarizing the Customer's Environment]
-### Cross-Sell Recommendations
+Example Output Format (Markdown):
+### Products inside Company ABC
 #### 1. [Product Name]
-   * **Fit Rationale:** …
-   * **Value Proposition:** …
-   * **Confidence Level:** …
-   * **Sales Positioning Tip:** …
+   * **Description:** …
+   * **Other Information:** …
 
 #### 2. [Product Name]
    * ...
 Constraints:
-•	Base all insights only on the provided context and retrieved information of Our Products.
+•	Base all insights only on the provided context and retrieved information.
 •	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
 •	Use concise, professional, and actionable language suitable for sales enablement documentation.
 Question: {question}

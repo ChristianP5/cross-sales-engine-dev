@@ -449,8 +449,21 @@ def chat_v1(prompt, retriever, loggingConfig, inferenceId):
 
     # 1)
     classifications = {
-        "cross-sell": "Question instructs to perform Cross Selling",
-        "others": "Question does not instruct to perform Cross-Selling"
+        "cross-sell": """
+Choose this ONLY if the user is explicitly asking for:
+- product recommendations
+- product suggestions
+- items to buy
+- what to offer a customer
+- what products go well with something
+- what to use in a specific customer scenario""",
+        "others": """
+Choose this if the user is asking about:
+- definitions of cross-selling
+- how to perform cross-selling
+- examples of cross-selling
+- training, explanations, or general knowledge
+- anything not requesting specific product recommendations"""
     }
     response = questionClassifier(prompt, classifications, inferenceId, loggingConfig)
     

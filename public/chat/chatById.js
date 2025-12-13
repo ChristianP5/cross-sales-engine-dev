@@ -63,12 +63,47 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <p><b>LLM (Ollama)</b> - <span>${inference.dateCreated}</span></p>
                   </section>
                   <section class="row response-sect">
+                  <section class="row" id="chat-response-docs-sect">
+                      <div class="col-1 align-content-center">
+                        <p>Sources:</p>
+                      </div>
+
+                      <div
+                        id="chat-response-docs-list"
+                        class="col-11 d-flex flex-wrap gap-2 mt-2 align-items-center"
+                      >
+                      </div>
+                    </section>
                     <p>${inference.response_html}</p>
                   </section>
                 </section>
               </section>
             </section>
           `
+          const chatResponseDocsList = itemElement.querySelector("#chat-response-docs-list")
+          const retrieved_docs = inference.docs
+
+          retrieved_docs.forEach(doc => {
+            const item = document.createElement("div")
+                item.classList.add("source-box", "d-flex", "align-items-center", "p-2")
+                
+                var image_src = "new-document.png"
+
+                if(doc.type == "PDF"){
+                    image_src = "pdf.png"
+                }
+
+                item.innerHTML = `
+                    <img
+                    class="source-icon"
+                    src="/file/_assets/${image_src}"
+                    alt=""
+                    />
+                    <span class="ms-2">${doc.name}</span>
+                `
+
+                chatResponseDocsList.appendChild(item)
+          })
 
           chatSpaceList.appendChild(itemElement)
         });

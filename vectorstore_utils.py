@@ -12,6 +12,8 @@ from sentence_transformers.cross_encoder import CrossEncoder
 import requests
 import os
 
+from langchain_core.documents import Document
+
 def allowed_file(filename, allowedExtensions):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowedExtensions
@@ -28,6 +30,8 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore):
     for doc in docs:
         doc.metadata["source_file"] = filepath
         doc.metadata["file_id"] = str(fileId)
+        doc.metadata["type"] = "document"
+        doc.metadata["purpose"] = "any"
 
 
     vectorStore.add_documents(documents=docs, ids=ids)
@@ -120,10 +124,10 @@ Question: {question}
 
 
 def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
-    ids = []
     try:
-        ids.append(documentId)
-        vectorStore.delete(ids=ids)
+        vectorStore.delete(
+            where={"file_id": str(documentId)}
+        )
     except Exception as e:
         loggingConfig["loggingObject"].exception(f"Error when deleting Document {documentId} from Vector Store!")
         print(e)
@@ -310,13 +314,16 @@ Question: {question}
 INFERENCE V3
 '''
 
-def inference_v3(question, retriever, loggingConfig, inferenceId):
+def inference_v3(question, retriever, loggingConfig, inferenceId, vector_store=None, chatId=None):
     
     RETRIEVED_AMM = 5
 
     template ="""Role: You are an expert B2B sales strategist and solutions architect specializing in identifying cross-sell opportunities.
 Goal: Answer the Question according to the provided Context
 Context Provided: [{context}]
+Memory (Relevant Past Answers):
+{llm_memory}
+
 Example Output Format (Markdown):
 ### Products inside Company ABC
 #### 1. [Product Name]
@@ -369,12 +376,54 @@ Question: {question}
 
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Reranking 1 finished.")
 
-    
+    # Get the LLM Memory
+    if vector_store:
+        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Retrieving LLM Memory for Chat {chatId}.")
+        # Build the Retriever
+        llm_memory_retriever = vector_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={
+                "k": 5,
+                "fetch_k": 10,
+                "filter": {
+                    "$and": [
+                        {"type": "llm_memory"},
+                        {"chatId": str(chatId)}
+                    ]
+                }
+            }
+        )
+
+        try:
+            retrieved_llm_memory_raw = llm_memory_retriever.invoke(question)
+
+            retrieved_llm_memory = []
+            for item in retrieved_llm_memory_raw:
+                retrieved_llm_memory.append(item.page_content)
+            
+            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Successfully Retrieved LLM Memory for Chat {chatId}.")
+            
+        except Exception as e:
+            print(e)
+            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Failed Retrieved LLM Memory for Chat {chatId}.")
+        
+        
+        # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
+        llm_memory_formatted = "\n".join(
+            [
+                f"Previous Interactions [#{i+1}]:\n{memory_item}"
+                for i, memory_item in enumerate(retrieved_llm_memory)
+            ]
+        )
+
+        # print(f"llm_memory_formatted: {llm_memory_formatted}")
+        
     # Augment
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
     augmented_prompt = prompt.invoke({
         "context": retrieved_docs_ranked[:RETRIEVED_AMM],
-        "question": question
+        "question": question,
+        "llm_memory": llm_memory_formatted
     }).to_string()
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
 
@@ -413,20 +462,6 @@ Question: {question}
                                      
     return response, augmented_prompt, contexts
 
-
-
-def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
-    ids = []
-    try:
-        ids.append(documentId)
-        vectorStore.delete(ids=ids)
-    except Exception as e:
-        loggingConfig["loggingObject"].exception(f"Error when deleting Document {documentId} from Vector Store!")
-        print(e)
-    
-    loggingConfig["loggingObject"].info(f"Document {documentId} deleted Successfully from Vector Store.")
-    return True
-
 def rerank(question, docs):
     model = CrossEncoder("cross-encoder/stsb-distilroberta-base")
  
@@ -442,7 +477,7 @@ def rerank(question, docs):
 
     return docs_ranked, docs_ranked_indices, docs_ranked_scores
 
-def chat_v1(prompt, retriever, loggingConfig, inferenceId):
+def chat_v1(prompt, retriever, loggingConfig, inferenceId, vector_store, chatId):
 
     # 1) Classify Prompt
     # 2) Generate Response
@@ -468,13 +503,13 @@ Choose this if the user is asking about:
     response = questionClassifier(prompt, classifications, inferenceId, loggingConfig)
     
     if "cross-sell" in response:
-        loggingConfig["loggingObject"].info(f"Inference {inferenceId} is classified as CROSS-SELL")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference is classified as CROSS-SELL")
         response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId)
         augmented_prompt = augmented_prompt_2
         
     else:
-        loggingConfig["loggingObject"].info(f"Inference {inferenceId} is classified as OTHERS")
-        response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId)
+        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference is classified as OTHERS")
+        response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId, vector_store, chatId)
 
     return response_raw, augmented_prompt, contexts
 
@@ -499,7 +534,7 @@ Question: {question}
     final_prompt = prompt.invoke({'question': question, 'classifications': classifications_list}).to_string()
     #  print(final_prompt)
 
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Question Classification start.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Question Classification start.")
     AZURE_API_KEY = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
 
@@ -524,8 +559,41 @@ Question: {question}
         # print(response_raw.json())
         response = response_raw.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Something went wrong when performing Questin Classification through the Azure AI Model Inference API.")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Something went wrong when performing Questin Classification through the Azure AI Model Inference API.")
         print(e)
 
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Question Classification completed.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Question Classification completed.")
     return response
+
+'''
+for Memory Feature
+'''
+def memory_to_vectorstore(inferenceId, question, response, chatId, vectorStore, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Adding Inference to Memory.")
+    
+    page_content = f"Question:\n{question}\nAnswer:\n{str(response)}"
+    
+    doc = Document(
+        page_content=page_content,
+    )
+
+    doc.metadata["type"] = "llm_memory"
+    doc.metadata["purpose"] = "llm_memory"
+    doc.metadata["inferenceId"] = str(inferenceId)
+    doc.metadata["chatId"] = str(chatId)
+    doc.metadata["question"] = str(question)
+
+    print(f"Adding to Memory. Question: {str(question)}")
+
+    try:
+        memory_id = str(uuid4())
+        vectorStore.add_documents(documents=[doc], ids=[memory_id])
+
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Failed adding Inference to Memory.")
+        print(e)
+        return True
+    
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference Added to Memory.")
+
+    return True

@@ -129,7 +129,7 @@ def getInferencesById(chatId, psqlConnectionConfig, loggingConfig):
 
 
 def getDocumentById(documentId, psqlConnectionConfig, loggingConfig):
-    
+
     try:
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
@@ -154,6 +154,11 @@ def getDocumentById(documentId, psqlConnectionConfig, loggingConfig):
     finally:
         cursor.close()
         conn.close()
+
+    # Populate the docs Array if no docs matches
+    if not docs:
+        item = {"id": "NOT_FOUND", "name": "NOT_FOUND", "type": "NOT_FOUND", "date": "NOT_FOUND"}
+        docs.append(item) 
 
     return docs[0]
 
@@ -186,7 +191,6 @@ Inference V2 - Utils
 '''
 def savePrompt_v2(userId, chatId, initialPrompt, augmentedPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores):
     currentDate = datetime.now()
-    inferenceId = hashlib.sha256(str(currentDate).encode()).hexdigest()[:8]
 
     try:
         loggingConfig["loggingObject"].info("[V2] Saving Prompt Started.")
@@ -209,3 +213,86 @@ def savePrompt_v2(userId, chatId, initialPrompt, augmentedPrompt, finalPrompt, r
         
     loggingConfig["loggingObject"].info("Saving Prompt Finished.")
     return True
+
+
+'''
+Chat V1 - Utils
+'''
+def saveInference_ChatV1_to_postgresql(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores):
+    currentDate = datetime.now()
+
+    try:
+        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Adding Inference to PostgreSQL Database.")
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = f"INSERT INTO inferences_ChatV1(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+
+        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
+
+        conn.commit()
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].exception(f"[Chat V1 | {inferenceId}] Error when adding Inference to PostgreSQL Database.")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+        
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Addedd Inference to PostgreSQL Database successfully!")
+    return True
+
+def getInference_ChatV1_from_postgresql(chatId, psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId}] Listing Inferences started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM inferences_ChatV1 WHERE chatId = %s;"
+
+        cursor.execute(sql_query, (chatId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        """
+        print(data)
+        i = 0
+        for result in data:
+            while(i < len(result)):
+                print(f"[{i}] : {result[i]}")
+                i += 1
+        """
+        
+        inferences = []
+        
+        for inference in data:
+            response_raw = inference[5]
+            response_html = markdown.markdown(response_raw)
+
+
+            # Get Documents Data
+            context_ids = inference[7]
+            docs = []
+            for documentId in context_ids:
+                doc = getDocumentById(documentId, psqlConnectionConfig, loggingConfig)
+                docs.append(doc)
+
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html, "docs": docs}
+            inferences.append(item)
+        
+
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId}] Listing Inferences success!")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId}] Listing Inferences failled!")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return inferences

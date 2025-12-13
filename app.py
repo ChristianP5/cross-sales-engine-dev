@@ -28,8 +28,8 @@ from langchain.schema.output_parser import StrOutputParser
 UTILS START
 '''
 
-from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2, inference_v3, chat_v1
-from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql
+from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2, inference_v3, chat_v1, memory_to_vectorstore
+from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql, saveInference_ChatV1_to_postgresql, getInference_ChatV1_from_postgresql
 from common_utils import generateId
 
 def deleteDocumentById(filename, documentId):
@@ -50,8 +50,29 @@ def delete_doc_from_filesystem(filename):
     except Exception:
         logging.exception(f"Error when deleting File {filename} from File Storage!")
         print(e)
+        return True
 
     logging.info(f"File {filename} deleted Successfully from File Storage.")
+    return True
+
+def saveInference_ChatV1(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, context_ids, context_scores, vecorStore):
+    inferenceId = generateId(8)
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Saving Prompt Pipeline Started.")
+    
+    try:
+        # Save Inference to PostgreSQL
+        saveInference_ChatV1_to_postgresql(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores)
+
+        # Save Response as Memory to Vector Store
+        memory_to_vectorstore(inferenceId, initialPrompt, response, chatId, vector_store, LOGGING_CONFIGURATION)
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Saving Prompt Pipeline Failed.")
+        print(e)
+        return True
+        
+
+    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Saving Prompt Pipeline Successful.")
     return True
 
 '''
@@ -120,8 +141,16 @@ vector_store = Chroma(
     )
 
 retriever = vector_store.as_retriever(
-    search_type="mmr", search_kwargs={"k": 5, "fetch_k": 10}
+    search_type="mmr", search_kwargs={
+            "k": 5,
+            "fetch_k": 10,
+            "filter": {
+                "type": "document"
+            }
+        }
 )
+
+
 
 # Initialize Database
 try:
@@ -141,6 +170,10 @@ try:
 
     createInferencesV2Table_sql_query = "CREATE TABLE IF NOT EXISTS inferencesV2(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt1 TEXT, finalPrompt2 TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesV2Table_sql_query)
+
+    # for ChatV1
+    createInferencesChatV1Table_sql_query = "CREATE TABLE IF NOT EXISTS inferences_ChatV1(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
+    cursor.execute(createInferencesChatV1Table_sql_query)
 
     conn.commit()
 
@@ -387,10 +420,10 @@ def post_inference_v3():
     for id in contexts_ids:
         doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
         docs.append(doc)
-    
 
     # savePrompt_v3(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
-
+    
+    
     response_html = markdown.markdown(response_raw)
 
     return {
@@ -420,7 +453,7 @@ def post_chat_v1():
     inferenceId = generateId(8)
     logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
-    response_raw, augmented_prompt, contexts = chat_v1(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
+    response_raw, augmented_prompt, contexts = chat_v1(prompt, retriever, LOGGING_CONFIGURATION, inferenceId, vector_store, chatId)
 
     contexts_ids = contexts["ids"]
     contexts_scores = contexts["scores"]
@@ -430,8 +463,8 @@ def post_chat_v1():
         doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
         docs.append(doc)
     
-
-    # savePrompt_v3(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
+    # for Reviewing and Memory feature
+    saveInference_ChatV1(userId, chatId, prompt, augmented_prompt,response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, contexts_ids, contexts_scores, vector_store)
 
     response_html = markdown.markdown(response_raw)
 
@@ -453,7 +486,12 @@ LIST INFERENCES By Chat ID Feature
 @app.route('/v1/chats/<chatId>/inferences', methods=['GET'])
 def get_inferences_byChatId(chatId):
 
-    inferences = getInferencesById(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    # Old Implementation
+    # inferences = getInferencesById(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    # New Implementation
+    inferences = getInference_ChatV1_from_postgresql(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
 
     return {
         "status": "success",

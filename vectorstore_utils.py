@@ -140,7 +140,7 @@ def delete_doc_from_vectorstore(documentId, vectorStore, loggingConfig):
 INFERENCE V2
 '''
 
-def inference_v2(question, retriever, loggingConfig, inferenceId):
+def inference_v2(question, retriever, loggingConfig, inferenceId, initial_retrieval_prompt=None, llm_memory_formatted=None):
     
     RETRIEVED_AMM_1 = 5
     RETRIEVED_AMM_2 = 5
@@ -157,6 +157,10 @@ Your Tasks:
 2.  Identify potential Capabilities the Recommended Products should have to complement the customer’s existing environment.
 3.	For each recommendation, provide:
 o   Capability Description (Up to 1 Paragraph)
+
+Memory (Relevant Past Answers):
+{llm_memory}
+
 Output Format (Limit the Ouput to only contain the following):
 List of Recommended Capabiities:
 - [RECOMMENDATION]
@@ -179,8 +183,13 @@ Question: {question}
 
     llm_1 = OllamaLLM(model="llama3.1")
 
+    # Retrieval 1
+    retrieval_question = question
+    if initial_retrieval_prompt:
+        retrieval_question = initial_retrieval_prompt
+
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieval 1 started.")
-    retrieved_docs_1_raw = retriever.invoke(question)
+    retrieved_docs_1_raw = retriever.invoke(retrieval_question)
     retrieved_docs_1 = []
     for docs in retrieved_docs_1_raw:
         retrieved_docs_1.append(docs.page_content)
@@ -206,14 +215,16 @@ Question: {question}
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 completed.")
 
-
+    # Augment 1
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 1 started.")
     augmented_prompt_1 = prompt_1.invoke({
         "context": context_1,
-        "question": question
+        "question": question,
+        "llm_memory": llm_memory_formatted
     }).to_string()
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 1 completed.")
 
+    # Generate 1
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 1 started.")
     generate_chain_1 =  llm_1 | StrOutputParser()
     response_1 = generate_chain_1.invoke(augmented_prompt_1)
@@ -242,6 +253,10 @@ Question: {question}
     o	Level of confidence (High / Medium / Low)
     3.	Highlight any dependencies, upgrade paths, or pre-requisites if applicable.
     4.	Suggest how to position the recommendation during a sales conversation.
+    
+    Memory (Relevant Past Answers):
+    {llm_memory}
+    
     Output Format (Markdown):
     ### Brief Summary of Customer's Environment:
     [1 Paragraph summarizing the Customer's Environment]
@@ -259,11 +274,14 @@ Question: {question}
     •	Base all insights only on the provided context and retrieved information.
     •	Do not hallucinate unavailable data; if information is missing, state what additional data would improve accuracy.
     •	Use concise, professional, and actionable language suitable for sales enablement documentation.
+    •	Give a relevant Contact Person according to PT Multipolar Tehcnology's Guidelines that can help answer the question better.
+    
     """
     prompt_2 = ChatPromptTemplate.from_template(template_2)
 
     llm_2 = OllamaLLM(model="llama3.1")
 
+    # Retrieve 2
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieve 2 started.")
     retrieved_docs_2_raw = retriever.invoke(response_1)
     retrieved_docs_2 = []
@@ -285,16 +303,18 @@ Question: {question}
 
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 completed.")
 
-
+    # Augment 2
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 2 started.")
     augmented_prompt_2 = prompt_2.invoke({
         "response_1": response_1,
         "context_1": context_1,
         "context_2": context_2,
-        "question": question
+        "question": question,
+        "llm_memory": llm_memory_formatted
         }).to_string()
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 2 completed.")
 
+    # Generate 2
     loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 2 started.")
     generate_chain_2 =  llm_2 | StrOutputParser()
     response_2 = generate_chain_2.invoke(augmented_prompt_2)
@@ -314,7 +334,7 @@ Question: {question}
 INFERENCE V3
 '''
 
-def inference_v3(question, retriever, loggingConfig, inferenceId, vector_store=None, chatId=None):
+def inference_v3(question, retriever, loggingConfig, inferenceId, llm_memory_formatted=None, chatId=None, initial_retrieval_prompt=None):
     
     RETRIEVED_AMM = 5
 
@@ -336,14 +356,19 @@ Constraints:
 •	Base all insights only on the provided context and retrieved information.
 •	Do not hallucinate unavailable data; if the provided context doesn't contain the relevant information to answer the question, state what additional data would improve accuracy.
 •	Use concise, professional, and actionable language suitable for sales enablement documentation.
+•	Give a relevant Contact Person according to PT Multipolar Tehcnology's Guidelines that can help answer the question better.
 Question: {question}
 """
  
     prompt = ChatPromptTemplate.from_template(template)
 
     # Retrieval
+    retrieval_question = question
+    if initial_retrieval_prompt:
+        retrieval_question = initial_retrieval_prompt
+
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
-    retrieved_docs_raw = retriever.invoke(question)
+    retrieved_docs_raw = retriever.invoke(retrieval_question)
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
     
     #  Prepare for Reranking
@@ -376,48 +401,6 @@ Question: {question}
 
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Reranking 1 finished.")
 
-    # Get the LLM Memory
-    if vector_store:
-        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Retrieving LLM Memory for Chat {chatId}.")
-        # Build the Retriever
-        llm_memory_retriever = vector_store.as_retriever(
-            search_type="mmr",
-            search_kwargs={
-                "k": 5,
-                "fetch_k": 10,
-                "filter": {
-                    "$and": [
-                        {"type": "llm_memory"},
-                        {"chatId": str(chatId)}
-                    ]
-                }
-            }
-        )
-
-        try:
-            retrieved_llm_memory_raw = llm_memory_retriever.invoke(question)
-
-            retrieved_llm_memory = []
-            for item in retrieved_llm_memory_raw:
-                retrieved_llm_memory.append(item.page_content)
-            
-            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Successfully Retrieved LLM Memory for Chat {chatId}.")
-            
-        except Exception as e:
-            print(e)
-            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Failed Retrieved LLM Memory for Chat {chatId}.")
-        
-        
-        # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
-        llm_memory_formatted = "\n".join(
-            [
-                f"Previous Interactions [#{i+1}]:\n{memory_item}"
-                for i, memory_item in enumerate(retrieved_llm_memory)
-            ]
-        )
-
-        # print(f"llm_memory_formatted: {llm_memory_formatted}")
-        
     # Augment
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
     augmented_prompt = prompt.invoke({
@@ -477,10 +460,16 @@ def rerank(question, docs):
 
     return docs_ranked, docs_ranked_indices, docs_ranked_scores
 
+'''
+CHAT V1
+
+'''
 def chat_v1(prompt, retriever, loggingConfig, inferenceId, vector_store, chatId):
 
     # 1) Classify Prompt
-    # 2) Generate Response
+    # 2) Pre-Process Prompt
+    # 3) Get the Chat's Memory
+    # 4) Generate Response
 
     # 1)
     classifications = {
@@ -502,17 +491,70 @@ Choose this if the user is asking about:
     }
     response = questionClassifier(prompt, classifications, inferenceId, loggingConfig)
     
+    
+    # 2)
+    initial_retrieval_prompt = f"{prompt}. Make sure to follow guidelines provided by PT Multipolar Technology."
+
+    # 3)
+    # Get the LLM Memory for the Chat
+    if vector_store:
+        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Retrieving LLM Memory for Chat {chatId}.")
+        # Build the Retriever
+        llm_memory_retriever = vector_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={
+                "k": 5,
+                "fetch_k": 10,
+                "filter": {
+                    "$and": [
+                        {"type": "llm_memory"},
+                        {"chatId": str(chatId)}
+                    ]
+                }
+            }
+        )
+
+        try:
+            retrieved_llm_memory_raw = llm_memory_retriever.invoke(prompt)
+
+            retrieved_llm_memory = []
+            for item in retrieved_llm_memory_raw:
+                retrieved_llm_memory.append(item.page_content)
+            
+            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Successfully Retrieved LLM Memory for Chat {chatId}.")
+            
+        except Exception as e:
+            print(e)
+            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Failed Retrieved LLM Memory for Chat {chatId}.")
+        
+        
+        # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
+        llm_memory_formatted = "\n".join(
+            [
+                f"Previous Interactions [#{i+1}]:\n{memory_item}"
+                for i, memory_item in enumerate(retrieved_llm_memory)
+            ]
+        )
+
+        # print(f"llm_memory_formatted: {llm_memory_formatted}")
+        
+
+    # 4)
     if "cross-sell" in response:
         loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference is classified as CROSS-SELL")
-        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId)
+        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, llm_memory_formatted)
         augmented_prompt = augmented_prompt_2
         
     else:
         loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference is classified as OTHERS")
-        response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId, vector_store, chatId)
+        response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt)
 
     return response_raw, augmented_prompt, contexts
 
+
+'''
+Question Classifier feature
+'''
 def questionClassifier(question, classifications, inferenceId, loggingConfig):
     
     classifications_list = "\n".join([f"- {key}: {value}" for key,value in classifications.items()])
@@ -534,6 +576,7 @@ Question: {question}
     final_prompt = prompt.invoke({'question': question, 'classifications': classifications_list}).to_string()
     #  print(final_prompt)
 
+    
     loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Question Classification start.")
     AZURE_API_KEY = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"

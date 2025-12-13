@@ -340,7 +340,7 @@ Question: {question}
     loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
     
     #  Prepare for Reranking
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Rerankimg 1 start.")
+    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Reranking 1 start.")
     retrieved_docs = [] 
 
     for doc in retrieved_docs_raw:

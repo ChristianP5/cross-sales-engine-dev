@@ -26,6 +26,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const submitButton = document.querySelector('#chat-submit-btn')
     disableButton(submitButton)
 
+    const chatSectionScrollable = document.querySelector("#chat-sect")
+
      // 1)
      chatId = window.location.pathname.split('/')[2]
      userId = "TEST_USER"
@@ -91,7 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         inferences =  data.data.inferences
         // console.log(inferences)
 
-        const chatSectionScrollable = document.querySelector("#chat-sect")
+        
         const chatSpaceList = document.querySelector('#chat-space')
         inferences.forEach(inference => {
             const itemElement = document.createElement('section')
@@ -160,7 +162,6 @@ document.addEventListener("DOMContentLoaded", async () => {
           chatSpaceList.appendChild(itemElement)
 
           // Scroll the Chat Section down
-          const chatSectionScrollable = document.querySelector("#chat-sect")
           scrollMax(chatSectionScrollable)
           
         });
@@ -248,7 +249,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         generatedResultTextElement.innerHTML = response
         
         // Scroll the Chat Section down
-        const chatSectionScrollable = document.querySelector("#chat-sect")
         scrollMax(chatSectionScrollable)
 
 

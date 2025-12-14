@@ -296,3 +296,77 @@ def getInference_ChatV1_from_postgresql(chatId, psqlConnectionConfig, loggingCon
 
     
     return inferences
+
+'''
+Chat Management Utils
+'''
+def getChatsbyUserId(userId, psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Listing Chats started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM chats WHERE userId = %s;"
+
+        cursor.execute(sql_query, (userId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+    
+        '''
+        print(data)
+        i = 0
+        for result in data:
+            while(i < len(result)):
+                print(f"[{i}] : {result[i]}")
+                i += 1
+        '''
+        
+        chats = []
+        
+        for chat in data:
+            item = {"chatId": chat[0], "userId": chat[1], "name": chat[2], "dateCreated": chat[3]}
+            chats.append(item)
+        
+
+        loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Listing Chats successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Listing Chats failed.")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return chats
+
+def createChat(userId, psqlConnectionConfig, loggingConfig, chatId, name):
+    loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Creating Chat {chatId} started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        currentDate = datetime.now()
+
+        sql_query = f"INSERT INTO chats(chatId, userId, name, dateCreated) VALUES (%s, %s, %s, %s);"
+
+        cursor.execute(sql_query, (chatId, userId, name, currentDate))
+
+        conn.commit()
+
+        loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Creating Chat {chatId} successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Creating Chat {chatId} failed.")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return True

@@ -105,7 +105,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
             const formData = JSON.stringify({
-                question: question
+                question: question,
+                chatId: "TEST_CHAT"
             })
 
             var targetEndpoint = ""

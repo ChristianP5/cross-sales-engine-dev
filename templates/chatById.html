@@ -20,105 +20,144 @@
     <link rel="stylesheet" href="/file/chat/chatById.css" />
   </head>
   <body>
-    <main class="container">
-      <section id="title-section" class="row">
-        <h1>Cross-Sell Engine</h1>
-      </section>
-      <!-- CHAT SECTION START -->
-      <section id="chat-sect" class="row mt-4">
-        <div class="container flex-row-reverse" id="chat-space">
-          <!-- Item Start -->
-          <!--
-          <section class="row">
-            <section class="container chat-item">
-              <section class="row question-sect">
-                <section class="container user-sect">
-                  <section class="row userinfo-sect">
-                    <p><b>USERNAME</b> - <span>datetime</span></p>
-                  </section>
-                  <section class="row question-sect"><p>ANSWER</p></section>
-                </section>
-              </section>
-              <section class="row response-sect">
-                <section class="container ai-sect">
-                  <section class="row aiinfo-sect">
-                    <p><b>LLM (Ollama)</b> - <span>datetime</span></p>
-                  </section>
-                  <section class="row response-sect">
-                  -->
-          <!-- Show Retrieved Docs Start -->
-          <!--
-                    <section class="row" id="chat-response-docs-sect">
-                      <div class="col-1 align-content-center">
-                        <p>Sources:</p>
-                      </div>
-
-                      <div
-                        id="chat-response-docs-list"
-                        class="col-11 d-flex flex-wrap gap-2 mt-2 align-items-center"
-                      >
-                      -->
-          <!-- Item Start -->
-          <!--
-                        <div class="source-box d-flex align-items-center p-2">
-                          <img
-                            class="source-icon"
-                            src="/file/_assets/new-document.png"
-                            alt=""
-                          />
-                          <span class="ms-2">document1.pdf</span>
-                        </div>
-                        -->
-          <!-- Item End -->
-          <!--
-                      </div>
-                    </section>
-                  -->
-          <!-- Show Retrieved Docs End -->
-          <!--
-                    <p>ANSWER</p>
-                  </section>
-                </section>
-              </section>
-            </section>
-          </section>
-          -->
-          <!-- Item End-->
-        </div>
-      </section>
-      <!-- CHAT SECTION END -->
-      <!-- QUESTION SECTION START -->
-      <section id="invoke-sect" class="row mb-2">
-        <section id="invoke-form-sect" class="row">
-          <form action="" id="chat-prompt-form" class="container">
-            <div class="row">
-              <label for="" class="form-label" id="input-question-label"
-                >Question:</label
-              >
-            </div>
-            <div class="row">
-              <div class="col">
+    <main class="container bg-dark-subtle">
+      <section id="main-section" class="row vh-100">
+        <!-- Chat List Section Start -->
+        <section id="chat-list-section" class="col-2 bg-white">
+          <span>Conversations</span>
+          <section id="chat-list" class="container">
+            <div id="create-chat-sect" class="row">
+              <!-- Create Chat Form Start -->
+              <form action="" method="post">
                 <input
                   type="text"
-                  name="question"
-                  id="input-question"
-                  class="form-control"
+                  name="form-control"
+                  id="create-chat-name-input"
+                  placeholder="Chat Name"
                 />
-              </div>
-              <div class="col">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  id="chat-submit-btn"
-                >
-                  Submit
+                <button id="create-chat-btn" class="btn btn-success">
+                  Create Chat
                 </button>
-              </div>
+              </form>
+              <!-- Create Chat Form End -->
             </div>
-          </form>
+            <!-- Item Start -->
+            <!--
+            <div class="row">
+              <span>CHAT NAME</span>
+            </div>
+            -->
+            <!-- Item End -->
+          </section>
         </section>
+        <!-- Chat List Section End-->
+        <!-- Chat Screen Section Start -->
+        <section id="chat-screen-section" class="col-10">
+          <section id="title-section" class="row">
+            <h1>Cross-Sell Engine</h1>
+          </section>
+          <!-- CHAT SECTION START -->
+          <section
+            id="chat-sect"
+            class="row mt-4 overflow-auto"
+            style="height: 70vh"
+          >
+            <div class="container flex-row-reverse" id="chat-space">
+              <!-- Item Start -->
+              <!--
+              <section class="row">
+                <section class="container chat-item">
+                  <section class="row question-sect">
+                    <section class="container user-sect">
+                      <section class="row userinfo-sect">
+                        <p><b>USERNAME</b> - <span>datetime</span></p>
+                      </section>
+                      <section class="row question-sect"><p>ANSWER</p></section>
+                    </section>
+                  </section>
+                  <section class="row response-sect">
+                    <section class="container ai-sect">
+                      <section class="row aiinfo-sect">
+                        <p><b>LLM (Ollama)</b> - <span>datetime</span></p>
+                      </section>
+                      <section class="row response-sect">
+                      -->
+              <!-- Show Retrieved Docs Start -->
+              <!--
+                        <section class="row" id="chat-response-docs-sect">
+                          <div class="col-1 align-content-center">
+                            <p>Sources:</p>
+                          </div>
+
+                          <div
+                            id="chat-response-docs-list"
+                            class="col-11 d-flex flex-wrap gap-2 mt-2 align-items-center"
+                          >
+                          -->
+              <!-- Item Start -->
+              <!--
+                            <div class="source-box d-flex align-items-center p-2">
+                              <img
+                                class="source-icon"
+                                src="/file/_assets/new-document.png"
+                                alt=""
+                              />
+                              <span class="ms-2">document1.pdf</span>
+                            </div>
+                            -->
+              <!-- Item End -->
+              <!--
+                          </div>
+                        </section>
+                      -->
+              <!-- Show Retrieved Docs End -->
+              <!--
+                        <p>ANSWER</p>
+                      </section>
+                    </section>
+                  </section>
+                </section>
+              </section>
+              -->
+              <!-- Item End-->
+            </div>
+          </section>
+          <!-- CHAT SECTION END -->
+          <!-- QUESTION SECTION START -->
+          <section id="invoke-sect" class="row mb-2">
+            <section id="invoke-form-sect" class="row">
+              <form action="" id="chat-prompt-form" class="container">
+                <div class="row">
+                  <label for="" class="form-label" id="input-question-label"
+                    >Question:</label
+                  >
+                </div>
+                <div class="row">
+                  <div class="col">
+                    <input
+                      type="text"
+                      name="question"
+                      id="input-question"
+                      class="form-control"
+                    />
+                  </div>
+                  <div class="col">
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      id="chat-submit-btn"
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </section>
+          </section>
+          <!-- QUESTION SECTION END -->
+        </section>
+        <!-- Chat Screen Section End -->
       </section>
-      <!-- QUESTION SECTION END -->
     </main>
   </body>
 </html>

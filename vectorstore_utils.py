@@ -178,7 +178,7 @@ Constraints:
 Question: {question}
 """
  
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Pipeline initiated. User Prompt: {question}")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Pipeline initiated. User Prompt: {question}")
     prompt_1 = ChatPromptTemplate.from_template(template_1)
 
     llm_1 = OllamaLLM(model="llama3.1")
@@ -188,14 +188,14 @@ Question: {question}
     if initial_retrieval_prompt:
         retrieval_question = initial_retrieval_prompt
 
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieval 1 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Retrieval 1 started.")
     retrieved_docs_1_raw = retriever.invoke(retrieval_question)
     retrieved_docs_1 = []
     for docs in retrieved_docs_1_raw:
         retrieved_docs_1.append(docs.page_content)
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieval 1 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Retrieval 1 completed.")
 
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Reranking 1 started.")
     context_1, docs_ranked_indices_1, docs_ranked_scores_1 = rerank(question, retrieved_docs_1)
 
     # Get the IDs of the Reranked Documents
@@ -213,22 +213,22 @@ Question: {question}
         retrieved_docs_ranked_ids.append(id)
             
 
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 1 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Reranking 1 completed.")
 
     # Augment 1
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 1 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Augment 1 started.")
     augmented_prompt_1 = prompt_1.invoke({
         "context": context_1,
         "question": question,
         "llm_memory": llm_memory_formatted
     }).to_string()
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 1 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Augment 1 completed.")
 
     # Generate 1
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 1 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Generate 1 started.")
     generate_chain_1 =  llm_1 | StrOutputParser()
     response_1 = generate_chain_1.invoke(augmented_prompt_1)
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 1 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Generate 1 completed.")
 
     '''
     Prompt #2
@@ -282,14 +282,14 @@ Question: {question}
     llm_2 = OllamaLLM(model="llama3.1")
 
     # Retrieve 2
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieve 2 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Retrieve 2 started.")
     retrieved_docs_2_raw = retriever.invoke(response_1)
     retrieved_docs_2 = []
     for docs in retrieved_docs_2_raw:
         retrieved_docs_2.append(docs.page_content)
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Retrieve 2 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Retrieve 2 completed.")
 
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Reranking 2 started.")
     context_2, docs_ranked_indices_2, docs_ranked_scores_2 = rerank(response_1, retrieved_docs_2)
 
     for score_raw in docs_ranked_scores_2[:RETRIEVED_AMM_2]:
@@ -301,10 +301,10 @@ Question: {question}
         id = retrieved_docs_2_raw[i].metadata['file_id']
         retrieved_docs_ranked_ids.append(id)
 
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Reranking 2 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Reranking 2 completed.")
 
     # Augment 2
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 2 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Augment 2 started.")
     augmented_prompt_2 = prompt_2.invoke({
         "response_1": response_1,
         "context_1": context_1,
@@ -312,15 +312,15 @@ Question: {question}
         "question": question,
         "llm_memory": llm_memory_formatted
         }).to_string()
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Augment 2 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Augment 2 completed.")
 
     # Generate 2
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 2 started.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Generate 2 started.")
     generate_chain_2 =  llm_2 | StrOutputParser()
     response_2 = generate_chain_2.invoke(augmented_prompt_2)
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Generate 2 completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Generate 2 completed.")
 
-    loggingConfig["loggingObject"].info(f"[V2 | {inferenceId}] Pipeline completed.")
+    loggingConfig["loggingObject"].info(f"[V2 | Inference: {inferenceId}] Pipeline completed.")
     
     contexts = {
         "ids": retrieved_docs_ranked_ids,
@@ -367,12 +367,12 @@ Question: {question}
     if initial_retrieval_prompt:
         retrieval_question = initial_retrieval_prompt
 
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Augment 1 start.")
     retrieved_docs_raw = retriever.invoke(retrieval_question)
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Augment 1 finished.")
     
     #  Prepare for Reranking
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Reranking 1 start.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Reranking 1 start.")
     retrieved_docs = [] 
 
     for doc in retrieved_docs_raw:
@@ -399,19 +399,19 @@ Question: {question}
         "scores": retrieved_docs_ranked_scores
     }
 
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Reranking 1 finished.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Reranking 1 finished.")
 
     # Augment
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 start.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Augment 1 start.")
     augmented_prompt = prompt.invoke({
         "context": retrieved_docs_ranked[:RETRIEVED_AMM],
         "question": question,
         "llm_memory": llm_memory_formatted
     }).to_string()
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Augment 1 finished.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Augment 1 finished.")
 
     # Generate
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Generate 1 start.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Generate 1 start.")
     AZURE_API_KEY = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
 
@@ -435,12 +435,12 @@ Question: {question}
         response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
         response = response_raw.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Something went wrong when inferencing through the Azure AI Model Inference API.")
+        loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Something went wrong when inferencing through the Azure AI Model Inference API.")
         print(e)
 
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Generate 1 finished.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Generate 1 finished.")
 
-    loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Pipeline completed.")
+    loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Pipeline completed.")
     
                                      
     return response, augmented_prompt, contexts
@@ -498,7 +498,7 @@ Choose this if the user is asking about:
     # 3)
     # Get the LLM Memory for the Chat
     if vector_store:
-        loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Retrieving LLM Memory for Chat {chatId}.")
+        loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Retrieving LLM Memory for Chat {chatId}.")
         # Build the Retriever
         llm_memory_retriever = vector_store.as_retriever(
             search_type="mmr",
@@ -521,11 +521,11 @@ Choose this if the user is asking about:
             for item in retrieved_llm_memory_raw:
                 retrieved_llm_memory.append(item.page_content)
             
-            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Successfully Retrieved LLM Memory for Chat {chatId}.")
+            loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Successfully Retrieved LLM Memory for Chat {chatId}.")
             
         except Exception as e:
             print(e)
-            loggingConfig["loggingObject"].info(f"[V3 | {inferenceId}] Failed Retrieved LLM Memory for Chat {chatId}.")
+            loggingConfig["loggingObject"].info(f"[V3 | Inference: {inferenceId}] Failed Retrieved LLM Memory for Chat {chatId}.")
         
         
         # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
@@ -541,12 +541,12 @@ Choose this if the user is asking about:
 
     # 4)
     if "cross-sell" in response:
-        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference is classified as CROSS-SELL")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as CROSS-SELL")
         response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, llm_memory_formatted)
         augmented_prompt = augmented_prompt_2
         
     else:
-        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference is classified as OTHERS")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as OTHERS")
         response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt)
 
     return response_raw, augmented_prompt, contexts
@@ -577,7 +577,7 @@ Question: {question}
     #  print(final_prompt)
 
     
-    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Question Classification start.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Question Classification start.")
     AZURE_API_KEY = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
 
@@ -602,17 +602,17 @@ Question: {question}
         # print(response_raw.json())
         response = response_raw.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Something went wrong when performing Questin Classification through the Azure AI Model Inference API.")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Something went wrong when performing Questin Classification through the Azure AI Model Inference API.")
         print(e)
 
-    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Question Classification completed.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Question Classification completed.")
     return response
 
 '''
 for Memory Feature
 '''
 def memory_to_vectorstore(inferenceId, question, response, chatId, vectorStore, loggingConfig):
-    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Adding Inference to Memory.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Adding Inference to Memory of Chat {chatId}.")
     
     page_content = f"Question:\n{question}\nAnswer:\n{str(response)}"
     
@@ -633,10 +633,10 @@ def memory_to_vectorstore(inferenceId, question, response, chatId, vectorStore, 
         vectorStore.add_documents(documents=[doc], ids=[memory_id])
 
     except Exception as e:
-        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Failed adding Inference to Memory.")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Failed adding Inference to Memory of Chat {chatId}.")
         print(e)
         return True
     
-    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Inference Added to Memory.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Inference Added to Memory of Chat {chatId}.")
 
     return True

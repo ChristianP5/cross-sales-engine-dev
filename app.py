@@ -29,7 +29,7 @@ UTILS START
 '''
 
 from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2, inference_v3, chat_v1, memory_to_vectorstore
-from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql, saveInference_ChatV1_to_postgresql, getInference_ChatV1_from_postgresql
+from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql, saveInference_ChatV1_to_postgresql, getInference_ChatV1_from_postgresql, getChatsbyUserId, createChat
 from common_utils import generateId
 
 def deleteDocumentById(filename, documentId):
@@ -55,9 +55,8 @@ def delete_doc_from_filesystem(filename):
     logging.info(f"File {filename} deleted Successfully from File Storage.")
     return True
 
-def saveInference_ChatV1(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, context_ids, context_scores, vecorStore):
-    inferenceId = generateId(8)
-    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Saving Prompt Pipeline Started.")
+def saveInference_ChatV1(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, context_ids, context_scores, inferenceId):
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Saving Prompt Pipeline Started.")
     
     try:
         # Save Inference to PostgreSQL
@@ -67,12 +66,12 @@ def saveInference_ChatV1(userId, chatId, initialPrompt, finalPrompt, response, p
         memory_to_vectorstore(inferenceId, initialPrompt, response, chatId, vector_store, LOGGING_CONFIGURATION)
     
     except Exception as e:
-        loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Saving Prompt Pipeline Failed.")
+        loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Saving Prompt Pipeline Failed.")
         print(e)
         return True
         
 
-    loggingConfig["loggingObject"].info(f"[Chat V1 | {inferenceId}] Saving Prompt Pipeline Successful.")
+    loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Saving Prompt Pipeline Successful.")
     return True
 
 '''
@@ -161,19 +160,23 @@ try:
 
     createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesTable_sql_query)
-
+   
+    # for User Management
     createUsersTable_sql_query = "CREATE TABLE IF NOT EXISTS users(userId VARCHAR(255) PRIMARY KEY, username VARCHAR(255), password VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createUsersTable_sql_query)
 
-    createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    # for Chat Management
+    createChatsTable_sql_query = "CREATE TABLE IF NOT EXISTS chats(chatId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), name VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createChatsTable_sql_query)
 
+     # for Saving Inferences for InferenceV2
     createInferencesV2Table_sql_query = "CREATE TABLE IF NOT EXISTS inferencesV2(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt1 TEXT, finalPrompt2 TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesV2Table_sql_query)
 
-    # for ChatV1
+    # for Saving Inferences for ChatV1
     createInferencesChatV1Table_sql_query = "CREATE TABLE IF NOT EXISTS inferences_ChatV1(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesChatV1Table_sql_query)
+
 
     conn.commit()
 
@@ -321,7 +324,7 @@ def post_inference_v1():
     req = request.get_json()
 
     userId = "TEST_USER"
-    chatId = "TEST_CHAT"
+    chatId = req.get('chatId')
 
     prompt = req.get('question')
     logging.info(f"Prompt received: {prompt}")
@@ -362,11 +365,11 @@ def post_inference_v2():
     req = request.get_json()
 
     userId = "TEST_USER"
-    chatId = "TEST_CHAT"
+    chatId = req.get('chatId')
 
     prompt = req.get('question')
     inferenceId = generateId(8)
-    logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
+    logging.info(f"[V2 | Chat: {chatId}] Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
     response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
 
@@ -405,11 +408,11 @@ def post_inference_v3():
     req = request.get_json()
 
     userId = "TEST_USER"
-    chatId = "TEST_CHAT"
+    chatId = req.get('chatId')
 
     prompt = req.get('question')
     inferenceId = generateId(8)
-    logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
+    logging.info(f"[V3 | Chat: {chatId}] Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
     response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
 
@@ -445,13 +448,14 @@ CHAT V1 FEATURE
 def post_chat_v1():
 
     req = request.get_json()
-
-    userId = "TEST_USER"
-    chatId = "TEST_CHAT"
-
     prompt = req.get('question')
+    
+    userId = "TEST_USER"
+    chatId = req.get('chatId')
+
+    
     inferenceId = generateId(8)
-    logging.info(f"Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
+    logging.info(f"[Chat V1 | Chat: {chatId}] Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
     response_raw, augmented_prompt, contexts = chat_v1(prompt, retriever, LOGGING_CONFIGURATION, inferenceId, vector_store, chatId)
 
@@ -464,7 +468,7 @@ def post_chat_v1():
         docs.append(doc)
     
     # for Reviewing and Memory feature
-    saveInference_ChatV1(userId, chatId, prompt, augmented_prompt,response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, contexts_ids, contexts_scores, vector_store)
+    saveInference_ChatV1(userId, chatId, prompt, augmented_prompt,response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, contexts_ids, contexts_scores, inferenceId)
 
     response_html = markdown.markdown(response_raw)
 
@@ -501,7 +505,48 @@ def get_inferences_byChatId(chatId):
         }
     }
 
-    
+
+'''
+CHAT MANAGEMENT feature
+'''
+@app.route('/v1/chats', methods=['GET'])
+def getChats():
+    # Get Chat by User Id
+    userId = 'TEST_USER'
+
+    chats = getChatsbyUserId(userId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    return {
+        "status": "success",
+        "message": f"Retrieved Chats of User {userId} Successfully!",
+        "data": {
+            "chats": chats
+        }
+    }
+
+@app.route('/v1/chats/create', methods=['POST'])
+def postChats():
+    # Create Chat on User Id
+    userId = 'TEST_USER'
+
+    # Generate chatId
+    chatId = generateId(8)
+
+    # Get Display Name of the Chat
+    req = request.get_json()
+    name = req.get('name')
+
+    createChat(userId, PSQL_CONNECTION, LOGGING_CONFIGURATION, chatId, name)
+
+    return {
+        "status": "success",
+        "message": f"Chats {chatId} Created for User {userId} Successfully!",
+        "data": {
+            "chatId": chatId
+        }
+    }
+
+
 '''
 API SERVER END
 ================================================================================================

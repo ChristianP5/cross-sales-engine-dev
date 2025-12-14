@@ -2,8 +2,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     
      /**
       * 1) Get Information of Chat and User
+      * 2) Generate Chats fom that User
       * 2) Generate Inferences from that Chat
       * 3) Load the Chat Function
+      * 5) Load the Create Chat Function
       */
 
      // Initial State
@@ -17,6 +19,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         button.disabled = false
     }
 
+    const scrollMax = (container) => {
+      container.scrollTop = container.scrollHeight;
+    }
+
     const submitButton = document.querySelector('#chat-submit-btn')
     disableButton(submitButton)
 
@@ -25,8 +31,50 @@ document.addEventListener("DOMContentLoaded", async () => {
      userId = "TEST_USER"
 
      // 2)
-     
+     const generateChatsByUserId = async(userId) => {
+      const targetEndpoint = '/v1/chats'
+      const result = await fetch(targetEndpoint, {
+        headers: {
+          'Authorization': `Bearer ${userId}`
+        },
+        method: 'GET'
+      })
 
+      const data = await result.json()
+
+      if(!result.ok){
+        alert(data.message)
+        throw new Error(data.message)
+      }
+
+      const chatList = document.querySelector("#chat-list")
+      const chats = data.data.chats
+
+      chats.forEach(chat => {
+        const item = document.createElement("div")
+        item.classList.add("row")
+        item.innerHTML = `
+        <span id="chat-item">${chat.name}</span>
+        `
+        chatList.appendChild(item)
+
+        const clickable = item.querySelector("#chat-item")
+        clickable.addEventListener("click", async (e) => {
+          e.preventDefault()
+
+          window.location.href = `/chats/${chat.chatId}`
+          return;
+        })
+
+      })
+      
+
+
+
+     }
+     await generateChatsByUserId(userId)
+
+     // 3)
      const generateInferencesByChatId = async (chatId) => {
         const targetEndpoint = `/v1/chats/${chatId}/inferences`
         const result = await fetch(targetEndpoint, {
@@ -43,10 +91,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         inferences =  data.data.inferences
         // console.log(inferences)
 
+        const chatSectionScrollable = document.querySelector("#chat-sect")
         const chatSpaceList = document.querySelector('#chat-space')
         inferences.forEach(inference => {
             const itemElement = document.createElement('section')
             itemElement.classList.add('row');
+            itemElement.classList.add('bg-white');
+            itemElement.classList.add('m-2');
             itemElement.innerHTML =`
             <section class="container chat-item">
               <section class="row question-sect">
@@ -103,9 +154,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 `
 
                 chatResponseDocsList.appendChild(item)
+
           })
 
           chatSpaceList.appendChild(itemElement)
+
+          // Scroll the Chat Section down
+          scrollMax(chatSectionScrollable)
+          
         });
 
      }
@@ -133,6 +189,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const chatSpaceList = document.querySelector('#chat-space')
         const itemElement = document.createElement('section')
             itemElement.classList.add('row');
+            itemElement.classList.add('bg-white');
+            itemElement.classList.add('m-2');
             itemElement.innerHTML =`
             <section class="container chat-item">
               <section class="row question-sect">
@@ -157,12 +215,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           `
 
           chatSpaceList.appendChild(itemElement)
+          scrollMax(chatSectionScrollable)
 
         const formData = JSON.stringify({
-            question: question
+            question: question,
+            chatId: chatId
         })
 
-        const targetEndpoint = `/v1/inference`
+        const targetEndpoint = `/v1/chat`
         const result = await fetch(targetEndpoint, {
           method: "POST",
           headers: {
@@ -186,10 +246,56 @@ document.addEventListener("DOMContentLoaded", async () => {
         const generatedResultTextElement = itemElement.querySelector(".genereated-result-text")
         generatedResultTextElement.innerHTML = response
         
+        // Scroll the Chat Section down
+        const chatSectionScrollable = document.querySelector("#chat-sect")
+        scrollMax(chatSectionScrollable)
+
+
         // Re-enable the Button
         enableButton(submitButton)
 
       })
     }
     loadChatFunction()
+
+    // 5)
+    const loadCreateChatFunction = async () => {
+      const createChatButton = document.querySelector("#create-chat-btn")
+      createChatButton.addEventListener("click", async (e) => {
+        e.preventDefault()
+
+        const createChatNameInput = document.querySelector("#create-chat-name-input")
+        const chatName = createChatNameInput.value
+
+        const formData = JSON.stringify({
+          name: chatName
+        })
+
+        const targetEndpoint = '/v1/chats/create'
+        const result = await fetch(targetEndpoint, {
+          headers: {
+            "Authorization": `Bearer ${userId}`,
+            "Content-type": "application/json"
+          },
+          method: 'POST',
+          body: formData
+
+        })
+
+        const data = await result.json()
+
+        if(!result.ok){
+          alert(data.message)
+          throw new Error(data.message)
+        }
+
+        alert(data.message)
+        
+        const new_chatId = data.data.chatId
+        window.location.href = `/chats/${new_chatId}`
+        return 0
+
+      })
+    }
+    await loadCreateChatFunction()
 })

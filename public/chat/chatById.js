@@ -160,6 +160,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           chatSpaceList.appendChild(itemElement)
 
           // Scroll the Chat Section down
+          const chatSectionScrollable = document.querySelector("#chat-sect")
           scrollMax(chatSectionScrollable)
           
         });

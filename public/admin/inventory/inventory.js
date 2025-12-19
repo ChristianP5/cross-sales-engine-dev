@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         2) Display Documents 
         */
 
-        const targetEndpoint = "/v1/documents"
-        const response = await fetch(targetEndpoint, {
+        const loadDocs_targetEndpoint = "/v1/documents"
+        const response = await fetch(loadDocs_targetEndpoint, {
             method: "GET"
         })
 
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <td>${doc.id}</td>
             <td>${doc.type}</td>
             <td>${doc.name}</td>
-            <td>${doc.date}</td>
+            <td>${doc.createdAt}</td>
             <td>
                 <button type="button" class="btn btn-danger delete-doc-btn">Delete</button>
                 <button type="button" class="btn btn-success download-doc-btn">Download</button>
@@ -65,6 +65,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     initializeList()
 
+    // Initialize the Customer Input
+    var customers
+    const initializeCustomerInput = async () => {
+        const customerInputElement = document.querySelector("#customer-input")
+
+        const targetEndpoint = "/v1/customers"
+        const result = await fetch(targetEndpoint, {
+            method: "GET"
+        })
+
+        const data = await result.json()
+
+        if(!result.ok){
+            alert(data.message)
+            throw new Error(data.message)
+        }
+
+        customers = data.data.customers
+
+        customers.forEach(customer => {
+            const item = document.createElement("option")
+            item.value = customer.customerId
+            item.textContent = customer.name
+
+            customerInputElement.appendChild(item)
+            customerInputElement.value = item.value
+        })
+
+    }
+    await initializeCustomerInput()
+
     // Configure Upload 
     
     const disableButton = (button) => {
@@ -77,16 +108,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.disabled = false
     }
 
+    // for assigning the 'purpose' Value to the Upload Request
+    const purposeValueElement = document.querySelector("#purpose-actual-input")
 
     const initializeUpload = async () => {
         const uploadForm = document.querySelector("#upload-form")
         const uploadSubmitButton = uploadForm.querySelector("#submit-btn")
+
+        
+
+        // Display the Customer Input Element if Purpose == CUSTOMER
+        const purposeInputElement = document.querySelector("#purpose-input")
+        var currentPurposeValue = purposeInputElement.value
+
+        purposeInputElement.addEventListener("change", async (e) => {
+
+            currentPurposeValue = purposeInputElement.value
+            console.log(currentPurposeValue)
+            
+            const customerInputSection = document.querySelector("#customer-input-section")
+
+            if(currentPurposeValue != "REGULATION"){
+                customerInputSection.classList.remove("d-none")
+                customerInputElement.value = customers[0].customerId
+                currentPurposeValue = customers[0].customerId
+            }else{
+                customerInputSection.classList.add("d-none")
+            }
+        })
+
+        // Set customerId value when a Customer is selected
+        const customerInputElement = document.querySelector("#customer-input")
+
+        customerInputElement.addEventListener("change", async (e) => {
+
+            currentPurposeValue = customerInputElement.value
+            console.log(currentPurposeValue)
+            
+        })
+
         uploadSubmitButton.addEventListener("click", async (e) => {
             e.preventDefault()
+
+            // Set purpose = customerId
+            purposeValueElement.value = currentPurposeValue
+            console.log(purposeValueElement)
 
             disableButton(uploadSubmitButton)
 
             const formData = new FormData(uploadForm)
+            
+            /*
+            for (const [key, value] of formData.entries()) {
+                console.log(key, value);
+            }
+            */
 
             const targetEndpoint = "/v1/upload"
             const response = await fetch(targetEndpoint, {

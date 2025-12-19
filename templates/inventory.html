@@ -34,9 +34,27 @@
     <!-- Upload Start -->
     <section class="row" id="upload-box">
         <h2>Upload PDF</h2>
-        <form id="upload-form" action="/v1/upload" method="post" enctype=multipart/form-data>
-            <input type="file" name="file" id="input-file">
-            <button class="btn btn-primary" id="submit-btn">Upload</button>
+        <form class="row" id="upload-form" action="/v1/upload" method="post" enctype=multipart/form-data>
+            <input class="col-2" type="file" name="file" id="input-file">
+            <div class="col-2">
+                <label for="purpose-input" class="form-label col-2">Purpose</label>
+                <select id="purpose-input" class="form-select col-2">
+                    <option value="REGULATION">REGULATION</option>
+                    <option id="purpose-customer-option" value="CUSTOMER">CUSTOMER</option>
+                </select>
+             </div>
+            <div id="customer-input-section" class="col-2 d-none">
+                <label for="customer-input" class="form-label col-2">Customer</label>
+                <select id="customer-input" class="form-select col-2">
+                    <!-- Item Start -->
+                     <!--
+                    <option value="111">CUSTOMER_1</option>
+                    -->
+                    <!-- Item End -->
+                </select>
+            </div>
+            <input type="hidden" name="purpose" id="purpose-actual-input">
+            <button class="btn btn-primary col-2" id="submit-btn">Upload</button>
         </form>
     </section>
     <!-- Upload End -->

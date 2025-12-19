@@ -15,21 +15,22 @@ def get_db_connection(psqlConnectionConfig):
         port=psqlConnectionConfig["psqlPort"]
     )
 
-def pdf_to_postgresql(filename, fileId, psqlConnectionConfig):
+def pdf_to_postgresql(filename, fileId, psqlConnectionConfig, purpose):
 
     try:
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
         currentDate = datetime.now()
-        insertDocEntry_sql_query = f"INSERT INTO documents(documentId, name, type, dateCreated) VALUES (%s, %s, 'PDF', %s);"
-        cursor.execute(insertDocEntry_sql_query, (fileId, filename, currentDate))
+        insertDocEntry_sql_query = f"INSERT INTO documents(documentId, name, type, createdAt, updatedAt, purpose) VALUES (%s, %s, 'PDF', %s, %s, %s);"
+        cursor.execute(insertDocEntry_sql_query, (fileId, filename, currentDate, currentDate, purpose))
 
         conn.commit()
  
     except Exception as e:
-        print("Error when storing PDF to PostgreSQL Database!")
         print(e)
+        raise Exception("Error when storing PDF to PostgreSQL Database!")
+        
     finally:
         cursor.close()
         conn.close()
@@ -50,14 +51,18 @@ def list_documents(psqlConnectionConfig, loggingConfig):
         conn.commit()
 
         data = cursor.fetchall()
+
+        # expandPsqlOutput(data)
+
         docs = []
         for doc in data:
-            item = {"id": doc[0], "name": doc[1], "type": doc[2], "date": doc[3]}
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
             docs.append(item)
     
     except Exception as e:
         loggingConfig["loggingObject"].exception("Error when Listing Documents to PostgreSQL Database!")
         print(e)
+        raise Exception("Error when Listing Documents to PostgreSQL Database!")
 
     finally:
         cursor.close()
@@ -84,6 +89,7 @@ def savePrompt_v1(userId, chatId, initialPrompt, finalPrompt, response, psqlConn
     except Exception as e:
         loggingConfig["loggingObject"].exception("Error when Saving Prompt to PostgreSQL Database!")
         print(e)
+        raise Exception("Error when Saving Prompt to PostgreSQL Database!")
 
     finally:
         cursor.close()
@@ -120,6 +126,7 @@ def getInferencesById(chatId, psqlConnectionConfig, loggingConfig):
     except Exception as e:
         loggingConfig["loggingObject"].exception("Error when Listing Inferences to PostgreSQL Database!")
         print(e)
+        raise Exception("Error when Listing Inferences to PostgreSQL Database!")
 
     finally:
         cursor.close()
@@ -150,6 +157,7 @@ def getDocumentById(documentId, psqlConnectionConfig, loggingConfig):
     except Exception as e:
         loggingConfig["loggingObject"].exception(f"Error when retrieving Document {documentId} from PostgreSQL Database!")
         print(e)
+        raise Exception(f"Error when retrieving Document {documentId} from PostgreSQL Database!")
 
     finally:
         cursor.close()
@@ -178,6 +186,8 @@ def delete_doc_from_postgresql(documentId, psqlConnectionConfig, loggingConfig):
     except Exception as e:
         loggingConfig["loggingObject"].exception(f"Error when deleting Document {documentId} PostgreSQL Database!")
         print(e)
+        raise Exception(f"Error when deleting Document {documentId} PostgreSQL Database!")
+
     finally:
         cursor.close()
         conn.close()
@@ -206,6 +216,7 @@ def savePrompt_v2(userId, chatId, initialPrompt, augmentedPrompt, finalPrompt, r
     except Exception as e:
         loggingConfig["loggingObject"].exception("Error when Saving Prompt to PostgreSQL Database!")
         print(e)
+        raise Exception("Error when Saving Prompt to PostgreSQL Database!")
 
     finally:
         cursor.close()
@@ -235,6 +246,7 @@ def saveInference_ChatV1_to_postgresql(userId, chatId, initialPrompt, finalPromp
     except Exception as e:
         loggingConfig["loggingObject"].exception(f"[Chat V1 | {inferenceId}] Error when adding Inference to PostgreSQL Database.")
         print(e)
+        raise Exception(f"[Chat V1 | {inferenceId}] Error when adding Inference to PostgreSQL Database.")
 
     finally:
         cursor.close()
@@ -289,6 +301,8 @@ def getInference_ChatV1_from_postgresql(chatId, psqlConnectionConfig, loggingCon
     except Exception as e:
         loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId}] Listing Inferences failled!")
         print(e)
+        raise Exception(f"[Chat V1 | Chat: {chatId}] Listing Inferences failled!")
+
 
     finally:
         cursor.close()
@@ -336,6 +350,8 @@ def getChatsbyUserId(userId, psqlConnectionConfig, loggingConfig):
     except Exception as e:
         loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Listing Chats failed.")
         print(e)
+        raise Exception(f"[Chat Management V1 | User: {userId}] Listing Chats failed.")
+
 
     finally:
         cursor.close()
@@ -363,6 +379,7 @@ def createChat(userId, psqlConnectionConfig, loggingConfig, chatId, name):
     except Exception as e:
         loggingConfig["loggingObject"].info(f"[Chat Management V1 | User: {userId}] Creating Chat {chatId} failed.")
         print(e)
+        raise Exception(f"[Chat Management V1 | User: {userId}] Creating Chat {chatId} failed.")
 
     finally:
         cursor.close()
@@ -394,6 +411,7 @@ def createCustomer(customerId, psqlConnectionConfig, loggingConfig, name):
     except Exception as e:
         loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Creating Customer {customerId} failed.")
         print(e)
+        raise Exception(f"[Customer Management V1 | Customer: {customerId}] Creating Customer {customerId} failed.")
 
     finally:
         cursor.close()
@@ -434,6 +452,7 @@ def updateCustomer(customerId, psqlConnectionConfig, loggingConfig, field, value
     except Exception as e:
         loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Updating Customer {customerId} failed.")
         print(e)
+        raise Exception(f"[Customer Management V1 | Customer: {customerId}] Updating Customer {customerId} failed.")
 
     finally:
         cursor.close()
@@ -456,11 +475,9 @@ def getCustomers(psqlConnectionConfig, loggingConfig):
         conn.commit()
 
         data = cursor.fetchall()
-
-    
         
-        # print(data)
-        expandPsqlOutput(data)
+        
+        # expandPsqlOutput(data)
         
         customers = []
         
@@ -481,6 +498,42 @@ def getCustomers(psqlConnectionConfig, loggingConfig):
     
     return customers
 
+def getCustomerById(customerId, psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1] Listing Customers started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM customers WHERE customerId = %s;"
+
+        cursor.execute(sql_query, (customerId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+        
+        
+        # expandPsqlOutput(data)
+        
+        customers = []
+        
+        for customer in data:
+            item = {"customerId": customer[0], "name": customer[1], "profile": customer[2], "products": customer[3], "contacts": customer[4], "createdAt": customer[5], "updatedAt": customer[6]}
+            customers.append(item)       
+
+        loggingConfig["loggingObject"].info(f"[Customer Management V1] Listing Customers successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1] Listing Customers failed.")
+        print(e)
+        raise Exception(f"[Customer Management V1] Listing Customers failed.")
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return customers
 
 
 def expandPsqlOutput(data):

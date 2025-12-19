@@ -176,7 +176,7 @@ try:
     cursor.execute(createInferencesChatV1Table_sql_query)
 
     # for Document Management
-    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name TEXT, type VARCHAR(255), purpose TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name TEXT, type VARCHAR(255), purpose TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
     cursor.execute(createDocsTable_sql_query)
 
     # for Customer Management
@@ -220,6 +220,10 @@ def upload_file_page():
 def customer_management_page():
     return render_template("customers.html")
 
+@app.route('/customers/<customerId>', methods=['GET'])
+def customer_profile_page(customerId):
+    return render_template("customerPage.html")
+
 @app.route('/chat', methods=['GET'])
 def chat_page():
     return render_template("chat.html")
@@ -231,6 +235,7 @@ def chat_page_byId(chatId):
 @app.route('/file/<path:filename>', methods=['GET'])
 def get_file(filename):
     return send_from_directory(PUBLIC_FILES_DIR, filename)
+
 
 
 '''
@@ -251,7 +256,19 @@ def upload_file():
     
     
     # Extract PDF from Request
-    file = request.files['file']
+    file = request.files.get('file')
+
+    # Extarct fields from Request
+    purpose = request.form.get('purpose')
+
+    # If Purpose != REGULATION, verify if Customer ID exists
+    if purpose != 'REGULATION':
+        if not psqlUtils.getCustomerById(purpose, PSQL_CONNECTION, LOGGING_CONFIGURATION):
+            return {
+                "status": "fail",
+                "message": f"Invalid Customer: {purpose}"
+            },400
+
 
     # Validate Input
     if not file or not vectorStoreUtils.allowed_file(file.filename, ALLOWED_EXTENSIONS):
@@ -261,6 +278,7 @@ def upload_file():
         },400
     
     filename = secure_filename(file.filename)
+    logging.info(f"Received {filename} with Purpose: {purpose}")
 
     # Upload the PDF Input to File Storage
     logging.info(f"{filename} saving to File Storage")
@@ -273,12 +291,12 @@ def upload_file():
     # Add Upload to PostgreSQL Database
     logging.info(f"{filename} Metadata saving to Database")
     fileId = str(uuid4())[:8]
-    psqlUtils.pdf_to_postgresql(filename, fileId, PSQL_CONNECTION)
+    psqlUtils.pdf_to_postgresql(filename, fileId, PSQL_CONNECTION, purpose)
     logging.info(f"{filename} Metadata saved to Database")
     
     # Add PDF Input to Vector Store
     logging.info(f"{filename} Embedding saving to Vector Store")
-    chunk_count = vectorStoreUtils.pdf_to_vectorstore(filepath, fileId, vector_store)
+    chunk_count = vectorStoreUtils.pdf_to_vectorstore(filepath, fileId, vector_store, purpose)
     logging.info(f"{filename}'s ({chunk_count} Chunks) Embedding saved to Vector Store")
 
     # Build Response
@@ -567,6 +585,13 @@ def postCustomers():
     # Get Properties of the Customer
     req = request.get_json()
     name = req.get('name')
+
+    # Validate Input
+    if name == '':
+        return {
+            "status": "fail",
+            "message": "'name' cannot be empty"
+        },400
 
     psqlUtils.createCustomer(customerId, PSQL_CONNECTION, LOGGING_CONFIGURATION, name)
 

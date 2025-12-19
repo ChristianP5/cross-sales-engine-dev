@@ -36,6 +36,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <button type="button" class="btn btn-success download-doc-btn">Download</button>
             </td>
             `
+
+            item.addEventListener('click', async (e) => {
+                e.preventDefault()
+
+                window.location.href = `/customers/${customer.customerId}`
+                return
+            })
+
             inventoryListElement.appendChild(item)
         })
     }

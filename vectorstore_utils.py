@@ -19,7 +19,7 @@ def allowed_file(filename, allowedExtensions):
            filename.rsplit('.', 1)[1].lower() in allowedExtensions
 
 
-def pdf_to_vectorstore(filepath, fileId, vectorStore):
+def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
 
     loader = PyPDFLoader(filepath)
     
@@ -31,7 +31,7 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore):
         doc.metadata["source_file"] = filepath
         doc.metadata["file_id"] = str(fileId)
         doc.metadata["type"] = "document"
-        doc.metadata["purpose"] = "any"
+        doc.metadata["purpose"] = purpose
 
 
     vectorStore.add_documents(documents=docs, ids=ids)

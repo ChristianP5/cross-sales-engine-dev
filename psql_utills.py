@@ -370,3 +370,124 @@ def createChat(userId, psqlConnectionConfig, loggingConfig, chatId, name):
 
     
     return True
+
+
+'''
+Customer Management Utils
+'''
+def createCustomer(customerId, psqlConnectionConfig, loggingConfig, name):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Creating Customer {customerId} started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        currentDate = datetime.now()
+
+        sql_query = f"INSERT INTO customers(customerId, name, createdAt, updatedAt) VALUES (%s, %s, %s, %s);"
+
+        cursor.execute(sql_query, (customerId, name, currentDate, currentDate))
+
+        conn.commit()
+
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Creating Customer {customerId} successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Creating Customer {customerId} failed.")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return True
+
+def updateCustomer(customerId, psqlConnectionConfig, loggingConfig, field, value):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Updating Customer {customerId} started.")
+    
+    ALLOWED_FIELDS = {
+        "name",
+        "profile",
+        "products",
+        "contacts"
+    }
+
+    try:
+        
+        if field not in ALLOWED_FIELDS:
+            raise ValueError("Invalid value for 'field' name")
+    
+
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        currentDate = datetime.now()
+
+        sql_query = f"UPDATE customers SET {field} = %s, updatedAt = %s WHERE customerId = %s;"
+
+        cursor.execute(sql_query, (value, currentDate, customerId))
+
+        conn.commit()
+
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Updating Customer {customerId} successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Updating Customer {customerId} failed.")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return True
+
+
+def getCustomers(psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1] Listing Customers started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM customers;"
+
+        cursor.execute(sql_query)
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+    
+        
+        # print(data)
+        expandPsqlOutput(data)
+        
+        customers = []
+        
+        for customer in data:
+            item = {"customerId": customer[0], "name": customer[1], "profile": customer[2], "products": customer[3], "contacts": customer[4], "createdAt": customer[5], "updatedAt": customer[6]}
+            customers.append(item)       
+
+        loggingConfig["loggingObject"].info(f"[Customer Management V1] Listing Customers successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1] Listing Customers failed.")
+        print(e)
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return customers
+
+
+
+def expandPsqlOutput(data):
+    i = 0
+    for result in data:
+            while(i < len(result)):
+                print(f"[{i}] : {result[i]}")
+                i += 1
+    
+    return True

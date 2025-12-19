@@ -28,14 +28,14 @@ from langchain.schema.output_parser import StrOutputParser
 UTILS START
 '''
 
-from vectorstore_utils import allowed_file, pdf_to_vectorstore, inference_v1, delete_doc_from_vectorstore, inference_v2, inference_v3, chat_v1, memory_to_vectorstore
-from psql_utills import get_db_connection, pdf_to_postgresql, list_documents, getInferencesById, getDocumentById, savePrompt_v1 ,savePrompt_v2 ,delete_doc_from_postgresql, saveInference_ChatV1_to_postgresql, getInference_ChatV1_from_postgresql, getChatsbyUserId, createChat
+import vectorstore_utils as vectorStoreUtils
+import psql_utills as psqlUtils
 from common_utils import generateId
 
 def deleteDocumentById(filename, documentId):
-    delete_doc_from_postgresql(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    psqlUtils.delete_doc_from_postgresql(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
     delete_doc_from_filesystem(filename)
-    delete_doc_from_vectorstore(documentId, vector_store, LOGGING_CONFIGURATION)
+    vectorStoreUtils.delete_doc_from_vectorstore(documentId, vector_store, LOGGING_CONFIGURATION)
     return True
 
 
@@ -60,10 +60,10 @@ def saveInference_ChatV1(userId, chatId, initialPrompt, finalPrompt, response, p
     
     try:
         # Save Inference to PostgreSQL
-        saveInference_ChatV1_to_postgresql(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores)
+        psqlUtils.saveInference_ChatV1_to_postgresql(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores)
 
         # Save Response as Memory to Vector Store
-        memory_to_vectorstore(inferenceId, initialPrompt, response, chatId, vector_store, LOGGING_CONFIGURATION)
+        vectorStoreUtils.memory_to_vectorstore(inferenceId, initialPrompt, response, chatId, vector_store, LOGGING_CONFIGURATION)
     
     except Exception as e:
         loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Saving Prompt Pipeline Failed.")
@@ -153,10 +153,8 @@ retriever = vector_store.as_retriever(
 
 # Initialize Database
 try:
-    conn = get_db_connection(PSQL_CONNECTION)
+    conn = psqlUtils.get_db_connection(PSQL_CONNECTION)
     cursor = conn.cursor()
-    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name VARCHAR(255), type VARCHAR(255), dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
-    cursor.execute(createDocsTable_sql_query)
 
     createInferencesTable_sql_query = "CREATE TABLE IF NOT EXISTS inferences(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesTable_sql_query)
@@ -177,6 +175,13 @@ try:
     createInferencesChatV1Table_sql_query = "CREATE TABLE IF NOT EXISTS inferences_ChatV1(inferenceId VARCHAR(255) PRIMARY KEY, userId VARCHAR(255), chatId VARCHAR(255), initialPrompt TEXT, finalPrompt TEXT, response TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP, context_ids TEXT[], context_scores REAL[]);"
     cursor.execute(createInferencesChatV1Table_sql_query)
 
+    # for Document Management
+    createDocsTable_sql_query = "CREATE TABLE IF NOT EXISTS documents(documentId VARCHAR(255) PRIMARY KEY, name TEXT, type VARCHAR(255), purpose TEXT, dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    cursor.execute(createDocsTable_sql_query)
+
+    # for Customer Management
+    createCustomersTable_sql_query = "CREATE TABLE IF NOT EXISTS customers(customerId TEXT PRIMARY KEY, name TEXT, profile TEXT, products TEXT, contacts TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    cursor.execute(createCustomersTable_sql_query)
 
     conn.commit()
 
@@ -210,6 +215,10 @@ FRONTEND SERVER START
 @app.route('/inventory', methods=['GET'])
 def upload_file_page():
     return render_template("inventory.html")
+
+@app.route('/customers', methods=['GET'])
+def customer_management_page():
+    return render_template("customers.html")
 
 @app.route('/chat', methods=['GET'])
 def chat_page():
@@ -245,7 +254,7 @@ def upload_file():
     file = request.files['file']
 
     # Validate Input
-    if not file or not allowed_file(file.filename, ALLOWED_EXTENSIONS):
+    if not file or not vectorStoreUtils.allowed_file(file.filename, ALLOWED_EXTENSIONS):
         return {
             "status": "fail",
             "message": "Invalid Input"
@@ -264,12 +273,12 @@ def upload_file():
     # Add Upload to PostgreSQL Database
     logging.info(f"{filename} Metadata saving to Database")
     fileId = str(uuid4())[:8]
-    pdf_to_postgresql(filename, fileId, PSQL_CONNECTION)
+    psqlUtils.pdf_to_postgresql(filename, fileId, PSQL_CONNECTION)
     logging.info(f"{filename} Metadata saved to Database")
     
     # Add PDF Input to Vector Store
     logging.info(f"{filename} Embedding saving to Vector Store")
-    chunk_count = pdf_to_vectorstore(filepath, fileId, vector_store)
+    chunk_count = vectorStoreUtils.pdf_to_vectorstore(filepath, fileId, vector_store)
     logging.info(f"{filename}'s ({chunk_count} Chunks) Embedding saved to Vector Store")
 
     # Build Response
@@ -288,7 +297,7 @@ LIST DOCUMENTS FEATURE
 @app.route('/v1/documents', methods=['GET'])
 def get_list_documents():
 
-    docs = list_documents(PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    docs = psqlUtils.list_documents(PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     return {
         "status": "success",
@@ -304,7 +313,7 @@ DELETE DOCUMENTS FEATURE
 @app.route('/v1/documents/<documentId>', methods=['DELETE'])
 def delete_document_byId(documentId):
 
-    doc = getDocumentById(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    doc = psqlUtils.getDocumentById(documentId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
     filename = doc['name']
 
     print(f"Deletig Filename:{filename}")
@@ -329,18 +338,18 @@ def post_inference_v1():
     prompt = req.get('question')
     logging.info(f"Prompt received: {prompt}")
 
-    augmented_prompt, response_raw, contexts = inference_v1(prompt, retriever)
+    augmented_prompt, response_raw, contexts = vectorStoreUtils.inference_v1(prompt, retriever)
 
     contexts_ids = contexts["ids"]
     contexts_scores = contexts["scores"]
 
     docs = []
     for id in contexts_ids:
-        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        doc = psqlUtils.getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
         docs.append(doc)
     
 
-    savePrompt_v1(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, contexts_ids, contexts_scores)
+    psqlUtils.savePrompt_v1(userId, chatId, prompt, augmented_prompt, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, contexts_ids, contexts_scores)
 
     response_html = markdown.markdown(response_raw)
 
@@ -378,11 +387,11 @@ def post_inference_v2():
 
     docs = []
     for id in contexts_ids:
-        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        doc = psqlUtils.getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
         docs.append(doc)
     
 
-    savePrompt_v2(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
+    psqlUtils.savePrompt_v2(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
 
     response_html = markdown.markdown(response_raw)
 
@@ -414,14 +423,14 @@ def post_inference_v3():
     inferenceId = generateId(8)
     logging.info(f"[V3 | Chat: {chatId}] Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
-    response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
+    response_raw, augmented_prompt, contexts = vectorStoreUtils.inference_v3(prompt, retriever, LOGGING_CONFIGURATION, inferenceId)
 
     contexts_ids = contexts["ids"]
     contexts_scores = contexts["scores"]
 
     docs = []
     for id in contexts_ids:
-        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        doc = psqlUtils.getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
         docs.append(doc)
 
     # savePrompt_v3(userId, chatId, prompt, augmented_prompt_1, augmented_prompt_2, response_raw, PSQL_CONNECTION, LOGGING_CONFIGURATION, inferenceId, contexts_ids, contexts_scores)
@@ -457,14 +466,14 @@ def post_chat_v1():
     inferenceId = generateId(8)
     logging.info(f"[Chat V1 | Chat: {chatId}] Prompt received: {prompt} || Assigned Inference ID: {inferenceId}")
 
-    response_raw, augmented_prompt, contexts = chat_v1(prompt, retriever, LOGGING_CONFIGURATION, inferenceId, vector_store, chatId)
+    response_raw, augmented_prompt, contexts = vectorStoreUtils.chat_v1(prompt, retriever, LOGGING_CONFIGURATION, inferenceId, vector_store, chatId)
 
     contexts_ids = contexts["ids"]
     contexts_scores = contexts["scores"]
 
     docs = []
     for id in contexts_ids:
-        doc = getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+        doc = psqlUtils.getDocumentById(id, PSQL_CONNECTION, LOGGING_CONFIGURATION)
         docs.append(doc)
     
     # for Reviewing and Memory feature
@@ -494,7 +503,7 @@ def get_inferences_byChatId(chatId):
     # inferences = getInferencesById(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     # New Implementation
-    inferences = getInference_ChatV1_from_postgresql(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    inferences = psqlUtils.getInference_ChatV1_from_postgresql(chatId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
 
     return {
@@ -514,7 +523,7 @@ def getChats():
     # Get Chat by User Id
     userId = 'TEST_USER'
 
-    chats = getChatsbyUserId(userId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+    chats = psqlUtils.getChatsbyUserId(userId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
 
     return {
         "status": "success",
@@ -536,13 +545,49 @@ def postChats():
     req = request.get_json()
     name = req.get('name')
 
-    createChat(userId, PSQL_CONNECTION, LOGGING_CONFIGURATION, chatId, name)
+    psqlUtils.createChat(userId, PSQL_CONNECTION, LOGGING_CONFIGURATION, chatId, name)
 
     return {
         "status": "success",
         "message": f"Chats {chatId} Created for User {userId} Successfully!",
         "data": {
             "chatId": chatId
+        }
+    }
+
+'''
+CUSTOMER MANAGEMENT feature
+'''
+@app.route('/v1/customers/create', methods=['POST'])
+def postCustomers():
+    
+    # Generate chatId
+    customerId = generateId(8)
+
+    # Get Properties of the Customer
+    req = request.get_json()
+    name = req.get('name')
+
+    psqlUtils.createCustomer(customerId, PSQL_CONNECTION, LOGGING_CONFIGURATION, name)
+
+    return {
+        "status": "success",
+        "message": f"Customer {customerId} Created Successfully!",
+        "data": {
+            "customerId": customerId
+        }
+    }
+
+@app.route('/v1/customers', methods=['GET'])
+def getCustomers():
+  
+    customers = psqlUtils.getCustomers(PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    return {
+        "status": "success",
+        "message": f"Customer retrieved Successfully!",
+        "data": {
+            "customers": customers
         }
     }
 

@@ -268,7 +268,7 @@ def upload_file():
                 "status": "fail",
                 "message": f"Invalid Customer: {purpose}"
             },400
-
+        
 
     # Validate Input
     if not file or not vectorStoreUtils.allowed_file(file.filename, ALLOWED_EXTENSIONS):
@@ -298,6 +298,152 @@ def upload_file():
     logging.info(f"{filename} Embedding saving to Vector Store")
     chunk_count = vectorStoreUtils.pdf_to_vectorstore(filepath, fileId, vector_store, purpose)
     logging.info(f"{filename}'s ({chunk_count} Chunks) Embedding saved to Vector Store")
+
+    
+    # If Purpose != REGULATION, Generate and Update Content for the Customer Information
+    if purpose != 'REGULATION':
+
+        # Profile
+        profile_instructionConfig = {
+            "role": "You are an enterprise solutions analyst and customer intelligence specialist.",
+            "objective": """
+            Generate a concise, accurate summary of a customer based strictly on the provided retrieved context. Behavior Rules:
+            • Use ONLY the information explicitly present in the context.
+            • Do NOT infer, assume, or hallucinate missing details.
+            • If critical information is missing, explicitly state what is unavailable.
+            • Maintain a professional, factual, and neutral tone suitable for internal business documentation.
+            • Prefer bullet points for clarity when appropriate.
+            """,
+            "examples": """
+            ### Customer Overview
+            - **Customer Name:** PT Example Teknologi
+            - **Industry:** Financial Services
+            - **Segment:** Enterprise
+
+            ### Relationship Summary
+            - Currently using **Google Cloud Platform (GCP)** for core infrastructure
+            - Previously engaged for **data analytics advisory**
+
+            ### Technical Landscape
+            - **Infrastructure:** GCP (Compute Engine, Cloud Storage)
+            - **Data Platform:** BigQuery
+            - **AI Usage:** Not mentioned in the provided context
+
+            ### Business Needs & Challenges
+            - Requires **scalable infrastructure** for seasonal workload spikes
+            - Emphasis on **regulatory compliance** and **data security**
+
+            ### Data Gaps
+            - No information on current AI initiatives
+            - No details on contract duration or commercial engagement
+
+            """,
+            "outputFormat":"""
+            Use clear section headers and concise bullet points.
+            """
+        }
+
+        profile = vectorStoreUtils.generateCustomerProfile(purpose, vector_store, LOGGING_CONFIGURATION, profile_instructionConfig)
+
+        # print(f"profile: {profile}")
+
+        profile_html = markdown.markdown(profile)
+
+        psqlUtils.updateCustomer(purpose, PSQL_CONNECTION, LOGGING_CONFIGURATION, 'profile', profile_html)
+    
+        # Products
+        products_instructionConfig = {
+            "role": "You are an enterprise customer intelligence analyst specializing in product usage identification.",
+            "objective": """
+            Extract a list of product or service names that the customer is explicitly stated to be currently using, based strictly on the provided context.
+            Behavior Rules:
+            • Use ONLY product names that are explicitly mentioned in the context.
+            • Do NOT infer, assume, or extrapolate usage.
+            • Do NOT include products mentioned as historical, proposed, evaluated, or planned unless clearly stated as currently in use.
+            • If no products are found, return an empty list.
+            • Do NOT include explanations, commentary, or additional text.
+            • Maintain exact product naming as written in the source context.
+            """,
+            "examples": """
+            If Product Exists:
+            - Google Cloud Platform
+            - Compute Engine
+            - Cloud Storage
+            - BigQuery
+
+            If No Product Exists:
+            (empty)
+
+            """,
+            "outputFormat":"""
+            Only output a List or an Empty List
+            """
+        }
+
+        products = vectorStoreUtils.generateCustomerProfile(purpose, vector_store, LOGGING_CONFIGURATION, products_instructionConfig)
+
+        # print(f"products: {products}")
+
+        products_html = markdown.markdown(products)
+
+        psqlUtils.updateCustomer(purpose, PSQL_CONNECTION, LOGGING_CONFIGURATION, 'products', products_html)
+    
+        # Contacts
+        contacts_instructionConfig = {
+            "role": "You are an enterprise account intelligence analyst specializing in extracting verified contact information.",
+            "objective": """
+            Extract a list of contact information related to the specified customer, including:
+            • Customer-side Points of Contact (PIC)
+            • PT Multipolar Technology Points of Contact (PIC)
+
+            Behavior Rules:
+            • Use ONLY contact information explicitly stated in the provided context.
+            • Do NOT infer roles, names, or relationships.
+            • Do NOT create or guess email addresses, phone numbers, or job titles.
+            • Preserve the original wording and naming from the source context.
+            • If no contacts are found for a category, return an empty list for that category.
+            • Do NOT include explanations, assumptions, or commentary.
+            """,
+            "examples": """
+            ### Customer PICs
+            - Name: Andi Pratama
+            Organization: PT Example Teknologi
+            Role: IT Infrastructure Manager
+            Email: andi.pratama@example.co.id
+            Phone: +62 812-3456-7890
+
+            ### PT Multipolar Technology PICs
+            - Name: Rina Wijaya
+            Organization: PT Multipolar Technology Tbk
+            Role: Account Manager
+            Email: rina.wijaya@multipolar.com
+            Phone: Not mentioned
+            """,
+            "outputFormat":"""
+            ### Customer PICs
+            - Name:
+            Organization:
+            Role:
+            Email:
+            Phone:
+
+            ### PT Multipolar Technology PICs
+            - Name:
+            Organization:
+            Role:
+            Email:
+            Phone:
+            """
+        }
+
+        contacts = vectorStoreUtils.generateCustomerProfile(purpose, vector_store, LOGGING_CONFIGURATION, contacts_instructionConfig)
+
+        # print(f"contacts: {contacts}")
+
+        contacts_html = markdown.markdown(contacts)
+
+        psqlUtils.updateCustomer(purpose, PSQL_CONNECTION, LOGGING_CONFIGURATION, 'contacts', contacts_html)
+    
 
     # Build Response
     logging.info(f"/v1/upload executed smoothly for {filename}")
@@ -613,6 +759,32 @@ def getCustomers():
         "message": f"Customer retrieved Successfully!",
         "data": {
             "customers": customers
+        }
+    }
+
+@app.route('/v1/customers/<customerId>', methods=['GET'])
+def getCustomerById(customerId):
+  
+    customer = psqlUtils.getCustomerById(customerId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    return {
+        "status": "success",
+        "message": f"Customer {customerId} retrieved Successfully!",
+        "data": {
+            "customer": customer
+        }
+    }
+
+@app.route('/v1/customers/<customerId>/documents', methods=['GET'])
+def getDocuments_byCustomerById(customerId):
+  
+    docs = psqlUtils.getDocumentsByCustomerById(customerId, PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    return {
+        "status": "success",
+        "message": f"Documents for Customer {customerId} retrieved Successfully!",
+        "data": {
+            "docs": docs
         }
     }
 

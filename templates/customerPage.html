@@ -28,47 +28,42 @@
     </nav>
     <!-- Header Start -->
     <header class="row">
-      <h1>Customers</h1>
+      <h1>Customer</h1>
     </header>
     <!-- Header End -->
-    <!-- Form Start -->
-    <section class="row" id="form-box">
-      <h2>Create Customer</h2>
-      <form
-        id="main-form"
-        action="/v1/customers/create"
-        method="post"
-        class="row"
-      >
-        <input
-          class="form-control col-8"
-          type="text"
-          name="name"
-          id="input-name"
-        />
-        <button class="btn btn-primary col-2" id="submit-btn">
-          Create Customer
-        </button>
-      </form>
-    </section>
-    <!-- Form End -->
-    <!-- Inventory Start -->
-    <section class="row mt-2" id="inventory-box">
-      <h2>Customers</h2>
-      <!-- List Start -->
-      <table class="table table-hover">
-        <thead>
-          <tr>
-            <th>Id</th>
-            <th>Name</th>
-            <th>Created At</th>
-            <th>Updated At</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="inventory-list">
-          <!-- Item Start -->
-          <!--
+    <!-- Customer Details Start -->
+    <section class="row container mt-2" id="customer-box">
+      <div class="row" id="customer-heading">
+        <h2 id="customer-name-text">CUSTOMER_NAME</h2>
+      </div>
+      <div class="row mt-4" id="customer-profile">
+        <h3><b>PROFILE</b></h3>
+        <span id="customer-profile-text">CUSTOMER_NAME</span>
+      </div>
+      <div class="row mt-4" id="customer-products">
+        <h3><b>PRODUCTS</b></h3>
+        <span id="customer-products-text">CUSTOMER_PRODUCTS</span>
+      </div>
+      <div class="row mt-4" id="customer-contacts">
+        <h3><b>CONTACTS</b></h3>
+        <span id="customer-contacts-text">CUSTOMER_CONTACTS</span>
+      </div>
+      <div class="row mt-4" id="customer-documents">
+        <h3><b>DOCUMENTS</b></h3>
+        <!-- List Start -->
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Id</th>
+              <th>Name</th>
+              <th>Created At</th>
+              <th>Updated At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="customer-documents-list">
+            <!-- Item Start -->
+            <!--
                  <tr>
                     <td>111</td>
                     <td>extermelyverylongfilenameexample.pdf</td>
@@ -80,11 +75,12 @@
                     </td>
                  </tr>
                 -->
-          <!-- Item End -->
-        </tbody>
-      </table>
-      <!-- List End -->
+            <!-- Item End -->
+          </tbody>
+        </table>
+        <!-- List End -->
+      </div>
     </section>
-    <!-- Inventory End -->
+    <!-- Customer Details End -->
   </body>
 </html>

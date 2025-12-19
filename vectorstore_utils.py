@@ -640,3 +640,114 @@ def memory_to_vectorstore(inferenceId, question, response, chatId, vectorStore, 
     loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Inference Added to Memory of Chat {chatId}.")
 
     return True
+
+'''
+Customer Management Utils
+'''
+def generateCustomerProfile(customerId, vectorStore, loggingConfig, instructionConfig):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile start.")
+
+    # Collect Parameters for the Prompt
+    role = instructionConfig["role"]
+    objective = instructionConfig["objective"]
+    examples = instructionConfig["examples"]
+    outputFormat = instructionConfig["outputFormat"]
+
+    # Retrieval
+    # Build the Retriever
+    retriever = vectorStore.as_retriever(
+        search_type="mmr",
+        search_kwargs={
+            "k": 5,
+            "fetch_k": 10,
+            "filter": {
+                "$and": [
+                    {"type": "document"},
+                    {"purpose": str(customerId)}
+                ]
+            }
+        }
+    )
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Retrieval Start.")
+
+    try:
+        retrieved_context_raw = retriever.invoke(objective)
+
+        retrieved_context = []
+        for item in retrieved_context_raw:
+            retrieved_context.append(item.page_content)
+            
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Retrieval Success.")
+        # print(retrieved_context)
+
+    except Exception as e:
+        print(e)
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Retrieval Error.")
+        raise Exception(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Retrieval Error.")
+
+    # Build the Prompt
+    template = """
+    Role:
+    {role}
+
+    Objective:
+    {objective}
+
+    Expected Output Format:
+    {outputFormat}
+
+    Examples:
+    {examples}
+
+    Context:
+    {context}
+    """
+    
+    # Augement
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Augment Start.")
+    prompt = ChatPromptTemplate.from_template(template)
+
+    final_prompt = prompt.invoke({
+        'role': role,
+        'objective': objective,
+        'outputFormat': outputFormat,
+        'examples': examples,
+        'context': retrieved_context
+        }).to_string()
+    
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Augment Finished.")
+
+    # Generate
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Generate Start.")
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+    AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AZURE_API_KEY}"
+    }
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{final_prompt}"
+            }
+        ],
+        "max_completion_tokens": 40000,
+        "model": "o4-mini"
+    }
+
+    try:
+        response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        # print(response_raw.json())
+        response = response_raw.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Generate Error.")
+        print(e)
+        raise Exception(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Generate Error.")
+
+
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Generate Success.")
+    
+    return response

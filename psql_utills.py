@@ -536,6 +536,88 @@ def getCustomerById(customerId, psqlConnectionConfig, loggingConfig):
     return customers
 
 
+def getCustomerById(customerId, psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM customers WHERE customerId = %s;"
+
+        cursor.execute(sql_query, (customerId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        # expandPsqlOutput(data)
+
+        customers = []
+        
+        for customer in data:
+            item = {"customerId": customer[0], "name": customer[1], "profile": customer[2], "products": customer[3], "contacts": customer[4], "createdAt": customer[5], "updatedAt": customer[6]}
+            customers.append(item)
+        
+        if not customers:
+            raise Exception(f"[Customer Management V1 | Customer: {customerId}] Customer doesn't exist.")
+
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data failed.")
+        print(e)
+        raise Exception(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data failed.")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return customers[0]
+
+
+def getDocumentsByCustomerById(customerId, psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Getting Documents for Customer started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM documents WHERE purpose = %s;"
+
+        cursor.execute(sql_query, (customerId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        # expandPsqlOutput(data)
+
+        docs = []
+        
+        for doc in data:
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
+            docs.append(item)
+        
+        if not docs:
+            raise Exception(f"[Customer Management V1 | Customer: {customerId}] Customer doesn't exist.")
+
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data failed.")
+        print(e)
+        raise Exception(f"[Customer Management V1 | Customer: {customerId}] Getting Customer data failed.")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return docs
+
+
 def expandPsqlOutput(data):
     i = 0
     for result in data:
@@ -544,3 +626,5 @@ def expandPsqlOutput(data):
                 i += 1
     
     return True
+
+

@@ -214,11 +214,11 @@ FRONTEND SERVER START
 
 @app.route('/inventory', methods=['GET'])
 def upload_file_page():
-    return render_template("inventory.html")
+    return render_template("inventory.html", active_page='inventory')
 
 @app.route('/customers', methods=['GET'])
 def customer_management_page():
-    return render_template("customers.html")
+    return render_template("customers.html", active_page='customers')
 
 @app.route('/customers/<customerId>', methods=['GET'])
 def customer_profile_page(customerId):
@@ -230,7 +230,7 @@ def chat_page():
 
 @app.route('/chats/<chatId>', methods=['GET'])
 def chat_page_byId(chatId):
-    return render_template("chatById.html")
+    return render_template("chatById.html", active_page='chats')
 
 @app.route('/file/<path:filename>', methods=['GET'])
 def get_file(filename):
@@ -788,6 +788,34 @@ def getDocuments_byCustomerById(customerId):
         }
     }
 
+'''
+REGULATION MANAGEMENT feature
+'''
+@app.route('/v1/regulations', methods=['GET'])
+def getRegulations():
+  
+    docs = psqlUtils.getRegulationDocs(PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    return {
+        "status": "success",
+        "message": f"Regulation Documents retrieved Successfully!",
+        "data": {
+            "docs": docs
+        }
+    }
+
+@app.route('/v1/customerDocs', methods=['GET'])
+def getCustomerDocs():
+  
+    docs = psqlUtils.getAllCustomerDocs(PSQL_CONNECTION, LOGGING_CONFIGURATION)
+
+    return {
+        "status": "success",
+        "message": f"ALL Customer Documents retrieved Successfully!",
+        "data": {
+            "docs": docs
+        }
+    }
 
 '''
 API SERVER END

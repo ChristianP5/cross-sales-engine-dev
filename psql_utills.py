@@ -628,3 +628,83 @@ def expandPsqlOutput(data):
     return True
 
 
+def getRegulationDocs(psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting Documents for REGULATION(s) started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM documents WHERE purpose = 'REGULATION';"
+
+        cursor.execute(sql_query)
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        # expandPsqlOutput(data)
+
+        docs = []
+        
+        for doc in data:
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
+            docs.append(item)
+        
+        if not docs:
+            raise Exception(f"[Regulation Management V1] REGULATION doesn't exist.")
+
+        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+        print(e)
+        raise Exception(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return docs
+
+def getAllCustomerDocs(psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting Documents for REGULATION(s) started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM documents WHERE purpose != 'REGULATION';"
+
+
+        cursor.execute(sql_query)
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        # expandPsqlOutput(data)
+
+        docs = []
+        
+        for doc in data:
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
+            docs.append(item)
+        
+        if not docs:
+            raise Exception(f"[Regulation Management V1] REGULATION doesn't exist.")
+
+        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+        print(e)
+        raise Exception(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return docs

@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     console.log("Working!")
 
-    // Initialize the List
+    // Initialize the Regulation Documents List
     const initializeRegulationsList = async () => {
         /**
         1) Get Documents
@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     initializeRegulationsList()
 
+    // Initialize the Customers Documents List
     const initializeCustomerDocsList = async () => {
         /**
         1) Get Documents
@@ -125,6 +126,69 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
     }
     initializeCustomerDocsList()
+
+    // Initialize the Products Documents List
+    const initializeProductDocsList = async () => {
+        /**
+        1) Get Documents
+        2) Display Documents 
+        */
+
+        const loadCustomerDocs_targetEndpoint = "/v1/productDocs"
+        const response = await fetch(loadCustomerDocs_targetEndpoint, {
+            method: "GET"
+        })
+
+        const data = await response.json()
+
+        if(!response.ok){
+            throw new Error(data)
+        }
+
+        const docs = data.data.docs
+
+        console.log(docs)
+
+        const customerDocsInventoryListElement = document.querySelector('#product-inventory-list')
+        docs.forEach(doc => {
+            const item = document.createElement("tr")
+            item.innerHTML = `
+            <td>${doc.id}</td>
+            <td>${doc.type}</td>
+            <td>${doc.name}</td>
+            <td>${doc.createdAt}</td>
+            <td>
+                <button type="button" class="btn btn-danger delete-doc-btn">Delete</button>
+                <button type="button" class="btn btn-success download-doc-btn">Download</button>
+            </td>
+            `
+
+            deleteDocumentButton = item.querySelector(".delete-doc-btn")
+            deleteDocumentButton.addEventListener("click", async (e) => {
+                e.preventDefault()
+
+                const deleteDocument_targetEndpoint = `/v1/documents/${doc.id}`
+                const response = await fetch(deleteDocument_targetEndpoint, {
+                    method: "DELETE"
+                })
+
+                const data = await response.json()
+
+                if(!response.ok){
+                    alert(data.message)
+                    throw new Error(data)
+                }
+
+                alert(`Document ${doc.name} deleted successfully!`)
+                location.href = `/inventory`
+                return;
+
+            })
+
+            customerDocsInventoryListElement.appendChild(item)
+        })
+    }
+    initializeProductDocsList()
 
 
 
@@ -191,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const customerInputSection = document.querySelector("#customer-input-section")
 
-            if(currentPurposeValue != "REGULATION"){
+            if(currentPurposeValue != "REGULATION" && currentPurposeValue != "PRODUCT"){
                 customerInputSection.classList.remove("d-none")
                 customerInputElement.value = customers[0].customerId
                 currentPurposeValue = customers[0].customerId

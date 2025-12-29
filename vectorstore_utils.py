@@ -487,7 +487,9 @@ Choose this if the user is asking about:
 - how to perform cross-selling
 - examples of cross-selling
 - training, explanations, or general knowledge
-- anything not requesting specific product recommendations"""
+- anything not requesting specific product recommendations
+- information about customers
+"""
     }
     response = questionClassifier(prompt, classifications, inferenceId, loggingConfig)
     
@@ -531,7 +533,7 @@ Choose this if the user is asking about:
         # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
         llm_memory_formatted = "\n".join(
             [
-                f"Previous Interactions [#{i+1}]:\n{memory_item}"
+                f"[#{i+1}{' - Most Relevant' if i==0 else ''}]:\n{memory_item}"
                 for i, memory_item in enumerate(retrieved_llm_memory)
             ]
         )
@@ -544,7 +546,7 @@ Choose this if the user is asking about:
         loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as CROSS-SELL")
         response_raw, augmented_prompt_1, augmented_prompt_2, contexts = inference_v2(prompt, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, llm_memory_formatted)
         augmented_prompt = augmented_prompt_2
-        
+
     else:
         loggingConfig["loggingObject"].info(f"[Chat V1 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as OTHERS")
         response_raw, augmented_prompt, contexts = inference_v3(prompt, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt)
@@ -555,26 +557,73 @@ Choose this if the user is asking about:
 '''
 Question Classifier feature
 '''
-def questionClassifier(question, classifications, inferenceId, loggingConfig):
+def questionClassifier(question, classifications, inferenceId, loggingConfig, relevant_llm_memory="" ,recent_llm_memory=""):
     
     classifications_list = "\n".join([f"- {key}: {value}" for key,value in classifications.items()])
     template ="""
-Read the given Question and Answer only the Key of the Clasification from one of the following List of Classifications:
+Task:
+You are a strict Question Classifier.
+
+Objective:
+Classify the user's Question into exactly ONE category by returning ONLY the key from the provided list.
+
+Allowed Output:
+• Return ONLY one classification key
+• No explanations, no punctuation, no formatting
+
+Classification Keys:
 {classifications}
 
-Example Question #1: What is GCP?
-Response #1: others
+---
 
-Example Question #2: What can I recommend to Company ABC?
-Response #2: cross-sell
+Context Rules:
+• You MAY use conversation history ONLY to:
+  - Resolve pronouns ("it", "they", "this", etc.)
+  - Understand implied intent or subject
+• Do NOT answer the question
+• Do NOT introduce new information
+• Do NOT infer intent beyond what is stated or clearly implied
 
-Question: {question}
+---
+
+Recent Conversation (Most recent messages):
+{recent_conversation}
+
+Relevant Past Conversation (Semantically related):
+{relevant_conversation}
+
+---
+
+Examples:
+
+Example Question #1:
+What is GCP?
+Response:
+others
+
+Example Question #2:
+What can I recommend to Company ABC?
+Response:
+cross-sell
+
+---
+
+Question:
+{question}
+
+Answer:
 """
 
     prompt = ChatPromptTemplate.from_template(template)
 
-    final_prompt = prompt.invoke({'question': question, 'classifications': classifications_list}).to_string()
-    #  print(final_prompt)
+    final_prompt = prompt.invoke({
+        'question': question,
+        'classifications': classifications_list,
+        'recent_conversation': recent_llm_memory,
+        'relevant_conversation': relevant_llm_memory
+        }).to_string()
+    
+    print(f"final_prompt: {final_prompt}")
 
     
     loggingConfig["loggingObject"].info(f"[Chat V1 | Inference: {inferenceId}] Question Classification start.")
@@ -734,7 +783,7 @@ def generateCustomerProfile(customerId, vectorStore, loggingConfig, instructionC
                 "content": f"{final_prompt}"
             }
         ],
-        "max_completion_tokens": 40000,
+        "max_completion_tokens": 400000,
         "model": "o4-mini"
     }
 
@@ -751,3 +800,349 @@ def generateCustomerProfile(customerId, vectorStore, loggingConfig, instructionC
     loggingConfig["loggingObject"].info(f"[Customer Management V1 | Customer: {customerId}] Generate Customer Profile - Generate Success.")
     
     return response
+
+
+'''
+CHAT V2
+'''
+
+def chat_v2(prompt, retriever, loggingConfig, inferenceId, vector_store, chatId, recent_llm_memory_input):
+
+    RETRIEVED_AMM = 5
+
+    # 1) Classify Prompt
+    # 2) Pre-Process Prompt
+    # 3) Get the Recent Memory for the Chat
+    # 4) Get the Relevant Memory for the Chat
+    # 5) Get the Relevant Regulation Documents for the Question
+    # 6) Generate Response
+
+    # 1)
+    classifications = {
+        "cross-sell": """
+Choose this ONLY if the user is explicitly asking for:
+- product recommendations
+- product suggestions
+- items to buy
+- what to offer a customer
+- what products go well with something
+- what to use in a specific customer scenario""",
+        "others": """
+Choose this if the user is asking about:
+- definitions of cross-selling
+- how to perform cross-selling
+- examples of cross-selling
+- training, explanations, or general knowledge
+- anything not requesting specific product recommendations
+- information about customers
+"""
+    }
+    
+    
+    
+    # 2)
+    initial_retrieval_prompt = f"{prompt}. Make sure to follow guidelines provided by PT Multipolar Technology."
+
+    # 3)
+    # Get the Recent LLM Memory for the Chat
+    recent_llm_memory = recent_llm_memory_input 
+
+    # 4)
+    # Get the Relevant LLM Memory for the Chat
+    if vector_store:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Retrieving LLM Memory for Chat {chatId}.")
+        # Build the Retriever
+        llm_memory_retriever = vector_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={
+                "k": 5,
+                "fetch_k": 10,
+                "filter": {
+                    "$and": [
+                        {"type": "llm_memory"},
+                        {"chatId": str(chatId)}
+                    ]
+                }
+            }
+        )
+
+        try:
+            retrieved_llm_memory_raw = llm_memory_retriever.invoke(prompt)
+
+            retrieved_llm_memory = []
+            for item in retrieved_llm_memory_raw:
+                retrieved_llm_memory.append(item.page_content)
+            
+            loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Successfully Retrieved LLM Memory for Chat {chatId}.")
+            
+        except Exception as e:
+            print(e)
+            loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Failed Retrieved LLM Memory for Chat {chatId}.")
+        
+        
+        # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
+        llm_memory_formatted = "\n".join(
+            [
+                f"[#{i+1}{' - Most Relevant' if i==0 else ''}]:\n{memory_item}"
+                for i, memory_item in enumerate(retrieved_llm_memory)
+            ]
+        )
+
+        # print(f"llm_memory_formatted: {llm_memory_formatted}")
+        
+
+    # 5)
+    contexts = {
+        "ids": [],
+        "scores": []
+    }
+
+    if vector_store:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Retrieving Regulation Documents for Chat {chatId}.")
+        # Build the Retriever
+        regulationDocs_retriever = vector_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={
+                "k": 5,
+                "fetch_k": 10,
+                "filter": {
+                    "$and": [
+                        {"type": "document"},
+                        {"purpose": "REGULATION"}
+                    ]
+                }
+            }
+        )
+
+        try:
+            retrievedRegulationDocs_raw = regulationDocs_retriever.invoke(initial_retrieval_prompt)
+
+            retrievedRegulationDocs = []
+            for item in retrievedRegulationDocs_raw:
+                retrievedRegulationDocs.append(item.page_content)
+            
+            loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Successfully Retrieved Regulation Documents for Chat {chatId}.")
+            
+        except Exception as e:
+            print(e)
+            loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Failed Retrieved Regulation Documents for Chat {chatId}.")
+        
+        
+        #  Prepare for Reranking
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Inference: {inferenceId}] Reranking 1 start.")
+
+        # Rerank
+        retrievedRegulationDocs_ranked, regulationDocs_ranked_indices, regulationnDocs_ranked_scores = rerank(prompt, retrievedRegulationDocs)
+        
+        # Get the IDs of the Reranked Documents
+        retrieved_regulationDocs_ranked_ids = []
+        retrieved_regulationDocs_ranked_scores = []
+
+        for i in regulationDocs_ranked_indices[:RETRIEVED_AMM]:
+            
+            id = retrievedRegulationDocs_raw[i].metadata['file_id']
+
+            retrieved_regulationDocs_ranked_ids.append(id)
+
+        for score_raw in regulationnDocs_ranked_scores[:RETRIEVED_AMM]:
+            score = float(score_raw)
+            retrieved_regulationDocs_ranked_scores.append(score)
+
+        # Add the Retrieved Context to the Contexts List
+        for ids in retrieved_regulationDocs_ranked_ids:
+            contexts["ids"].append(ids)
+        
+        for scores in retrieved_regulationDocs_ranked_scores:
+            contexts["scores"].append(scores)
+
+        # print(f"retrieved_llm_memory: {str(retrieved_llm_memory)}")
+        regulationDocs_formatted = "\n".join(
+            [
+                f"Regulations Document #{i+1}:\n{regulation_item}"
+                for i, regulation_item in enumerate(retrievedRegulationDocs_ranked)
+            ]
+        )
+
+
+
+    # 6)
+    # Question Classifier
+    response = questionClassifier(prompt, classifications, inferenceId, loggingConfig, llm_memory_formatted, recent_llm_memory)
+
+    if "cross-sell" in response:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as CROSS-SELL")
+        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = crossSellPipeline_chat_v2(prompt, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, llm_memory_formatted, regulationDocs_formatted)
+        augmented_prompt = augmented_prompt_2
+        
+    else:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as OTHERS")
+        response_raw, augmented_prompt, contexts = defaultPipeline_chat_v2(prompt, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt, recent_llm_memory, regulationDocs_formatted, contexts)
+
+    return response_raw, augmented_prompt, contexts
+
+def crossSellPipeline_chat_v2():
+    return 0
+
+def defaultPipeline_chat_v2(question, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt, recent_llm_memory, regulationDocs, contexts):
+    
+    RETRIEVED_AMM = 5
+
+    template ="""Role:
+You are an expert B2B sales strategist and solutions architect operating under strict company regulations.
+
+Primary Objective:
+Answer the user's question accurately while STRICTLY complying with Company Regulation Documents.
+
+MANDATORY SOURCE PRIORITY (DO NOT VIOLATE):
+1. Company Regulation Documents (highest authority)
+2. Retrieved Context (RAG results)
+3. Direct Previous Conversation
+4. Your Relevant Past Answers
+5. General knowledge (ONLY if not restricted and clearly allowed)
+
+If any lower-priority source conflicts with a higher-priority one:
+• You MUST follow the higher-priority source
+• You MUST explicitly state the restriction if it affects the answer
+
+---
+
+PRONOUN RESOLUTION RULE (MANDATORY):
+• When resolving pronouns ("it", "they", "this"):
+  - ALWAYS prefer the most recent explicitly mentioned primary entity
+  - Ignore older or repeated entities unless the user explicitly references them
+• Do NOT resolve pronouns based on frequency or relevance alone
+• If multiple entities are equally recent:
+  - Ask for clarification OR state ambiguity
+
+---
+
+Company Regulation Documents:
+{regulation_context}
+
+Retrieved Business / Customer Context:
+{context}
+
+Direct Previous Conversation (STRICT TURN ORDER — highest priority):
+{recent_llm_memory}
+
+Relevant Past Answers (REFERENCE ONLY — DO NOT USE FOR PRONOUN RESOLUTION):
+{relevant_llm_memory}
+
+---
+
+Response Rules:
+• Do NOT disclose restricted, confidential, or non-approved information
+• Do NOT infer or guess regulated information
+• If the question violates policy, respond with a compliant explanation
+• Use professional, sales-appropriate language
+• Provide PT Multipolar Technology contact persons ONLY if permitted by regulation
+
+---
+
+Output Format (Markdown):
+
+### Answer
+[Direct answer to the question]
+
+### Reasoning (Brief)
+• Identified subject: ...
+• Supporting context: ...
+
+### Data Gaps (if any)
+• ...
+
+---
+
+Question:
+{question}
+"""
+ 
+    prompt = ChatPromptTemplate.from_template(template)
+
+    # Retrieval
+    retrieval_question = question
+    if initial_retrieval_prompt:
+        retrieval_question = initial_retrieval_prompt
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Augment 1 start.")
+    retrieved_docs_raw = retriever.invoke(retrieval_question)
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Augment 1 finished.")
+    
+    #  Prepare for Reranking
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Reranking 1 start.")
+    retrieved_docs = [] 
+
+    for doc in retrieved_docs_raw:
+        retrieved_docs.append(doc.page_content)
+
+    # Rerank
+    retrieved_docs_ranked, docs_ranked_indices, docs_ranked_scores = rerank(question, retrieved_docs)
+
+    # Get the IDs of the Reranked Documents
+    retrieved_docs_ranked_ids = []
+    retrieved_docs_ranked_scores = []
+
+    for i in docs_ranked_indices[:RETRIEVED_AMM]:
+        
+        id = retrieved_docs_raw[i].metadata['file_id']
+
+        retrieved_docs_ranked_ids.append(id)
+
+    for score_raw in docs_ranked_scores[:RETRIEVED_AMM]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    # Add the Retrieved Context to the Contexts List
+    for ids in retrieved_docs_ranked_ids:
+        contexts["ids"].append(ids)
+    
+    for scores in retrieved_docs_ranked_scores:
+        contexts["scores"].append(scores)
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Reranking 1 finished.")
+
+    # Augment
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Augment 1 start.")
+    augmented_prompt = prompt.invoke({
+        "context": retrieved_docs_ranked[:RETRIEVED_AMM],
+        "question": question,
+        "relevant_llm_memory": llm_memory_formatted,
+        "recent_llm_memory": recent_llm_memory,
+        "regulation_context": regulationDocs
+    }).to_string()
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Augment 1 finished.")
+
+    # Generate
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Generate 1 start.")
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+    AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AZURE_API_KEY}"
+    }
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{augmented_prompt}"
+            }
+        ],
+        "max_completion_tokens": 40000,
+        "model": "o4-mini"
+    }
+
+    try:
+        response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        response = response_raw.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Something went wrong when inferencing through the Azure AI Model Inference API.")
+        print(e)
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Generate 1 finished.")
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - others | Inference: {inferenceId}] Pipeline completed.")
+    
+                                     
+    return response, augmented_prompt, contexts

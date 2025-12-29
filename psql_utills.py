@@ -80,7 +80,7 @@ def savePrompt_v1(userId, chatId, initialPrompt, finalPrompt, response, psqlConn
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
-        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        sql_query = f"INSERT INTO inferences(inferenceId, initialPrompt, finalPrompt, createdAt, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
 
         cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
 
@@ -119,7 +119,7 @@ def getInferencesById(chatId, psqlConnectionConfig, loggingConfig):
         for inference in data:
             response_raw = inference[5]
             response_html = markdown.markdown(response_raw)
-            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html}
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "createdAt": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html}
             inferences.append(item)
         
     
@@ -151,7 +151,7 @@ def getDocumentById(documentId, psqlConnectionConfig, loggingConfig):
 
         docs = []
         for doc in data:
-            item = {"id": doc[0], "name": doc[1], "type": doc[2], "date": doc[3]}
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "createdAt": doc[4]}
             docs.append(item)
     
     except Exception as e:
@@ -207,7 +207,7 @@ def savePrompt_v2(userId, chatId, initialPrompt, augmentedPrompt, finalPrompt, r
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
-        sql_query = f"INSERT INTO inferencesV2(inferenceId, initialPrompt, finalPrompt1, finalPrompt2, dateCreated, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        sql_query = f"INSERT INTO inferencesV2(inferenceId, initialPrompt, finalPrompt1, finalPrompt2, createdAt, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
 
         cursor.execute(sql_query, (inferenceId, initialPrompt, augmentedPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
 
@@ -237,7 +237,7 @@ def saveInference_ChatV1_to_postgresql(userId, chatId, initialPrompt, finalPromp
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
-        sql_query = f"INSERT INTO inferences_ChatV1(inferenceId, initialPrompt, finalPrompt, dateCreated, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        sql_query = f"INSERT INTO inferences_ChatV1(inferenceId, initialPrompt, finalPrompt, createdAt, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
 
         cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
 
@@ -292,7 +292,7 @@ def getInference_ChatV1_from_postgresql(chatId, psqlConnectionConfig, loggingCon
                 doc = getDocumentById(documentId, psqlConnectionConfig, loggingConfig)
                 docs.append(doc)
 
-            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "dateCreated": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html, "docs": docs}
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "createdAt": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html, "docs": docs}
             inferences.append(item)
         
 
@@ -341,7 +341,7 @@ def getChatsbyUserId(userId, psqlConnectionConfig, loggingConfig):
         chats = []
         
         for chat in data:
-            item = {"chatId": chat[0], "userId": chat[1], "name": chat[2], "dateCreated": chat[3]}
+            item = {"chatId": chat[0], "userId": chat[1], "name": chat[2], "createdAt": chat[3]}
             chats.append(item)
         
 
@@ -368,7 +368,7 @@ def createChat(userId, psqlConnectionConfig, loggingConfig, chatId, name):
 
         currentDate = datetime.now()
 
-        sql_query = f"INSERT INTO chats(chatId, userId, name, dateCreated) VALUES (%s, %s, %s, %s);"
+        sql_query = f"INSERT INTO chats(chatId, userId, name, createdAt) VALUES (%s, %s, %s, %s);"
 
         cursor.execute(sql_query, (chatId, userId, name, currentDate))
 
@@ -650,9 +650,6 @@ def getRegulationDocs(psqlConnectionConfig, loggingConfig):
             item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
             docs.append(item)
         
-        if not docs:
-            raise Exception(f"[Regulation Management V1] REGULATION doesn't exist.")
-
         loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data successful.")
     
     except Exception as e:
@@ -674,7 +671,45 @@ def getAllCustomerDocs(psqlConnectionConfig, loggingConfig):
         conn = get_db_connection(psqlConnectionConfig)
         cursor = conn.cursor()
 
-        sql_query = "SELECT * FROM documents WHERE purpose != 'REGULATION';"
+        sql_query = "SELECT * FROM documents WHERE purpose != 'REGULATION' AND purpose != 'PRODUCT';"
+
+        cursor.execute(sql_query)
+
+        conn.commit()
+
+        data = cursor.fetchall()
+
+        # expandPsqlOutput(data)
+
+        docs = []
+        
+        for doc in data:
+            item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
+            docs.append(item)
+        
+        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data successful.")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+        print(e)
+        raise Exception(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return docs
+
+
+def getAllProductDocs(psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Product Knowledge Management V1] Getting Documents for PRODUCTS(s) started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM documents WHERE purpose = 'PRODUCT';"
 
 
         cursor.execute(sql_query)
@@ -691,15 +726,13 @@ def getAllCustomerDocs(psqlConnectionConfig, loggingConfig):
             item = {"id": doc[0], "name": doc[1], "type": doc[2], "purpose": doc[3], "createdAt": doc[4], "updatedAt": doc[5]}
             docs.append(item)
         
-        if not docs:
-            raise Exception(f"[Regulation Management V1] REGULATION doesn't exist.")
-
-        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data successful.")
+        
+        loggingConfig["loggingObject"].info(f"[Product Knowledge Management V1] Getting PRODUCTS(s) data successful.")
     
     except Exception as e:
-        loggingConfig["loggingObject"].info(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+        loggingConfig["loggingObject"].info(f"[Product Knowledge Management V1] Getting PRODUCTS(s) data failed.")
         print(e)
-        raise Exception(f"[Regulation Management V1] Getting REGULATION(s) data failed.")
+        raise Exception(f"[Product Knowledge Management V1] Getting PRODUCTS(s) data failed.")
 
 
     finally:
@@ -708,3 +741,127 @@ def getAllCustomerDocs(psqlConnectionConfig, loggingConfig):
 
     
     return docs
+
+'''
+For Chat V2
+'''
+def getRecentLLMInferencesByChatId_chat_v2(chatId, amount,  psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId}] Listing Recent {amount} Inferences started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM inferences_ChatV2 WHERE chatId = %s ORDER BY createdAt DESC LIMIT %s;"
+
+        cursor.execute(sql_query, (chatId, amount))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+        
+        inferences = []
+        
+        for inference in data:
+            response_raw = inference[5]
+            response_html = markdown.markdown(response_raw)
+
+
+            # Get Documents Data
+            context_ids = inference[7]
+            docs = []
+            for documentId in context_ids:
+                doc = getDocumentById(documentId, psqlConnectionConfig, loggingConfig)
+                docs.append(doc)
+
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "createdAt": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html, "docs": docs}
+            inferences.append(item)
+        
+
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId}] Listing Recent {amount} Inferences success!")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId}] Listing Recent {amount} Inferences failled!")
+        print(e)
+        raise Exception(f"[Chat V2 | Chat: {chatId}] Listing Recent {amount} Inferences failled!")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return inferences
+
+
+def saveInference_ChatV2_to_postgresql(userId, chatId, initialPrompt, finalPrompt, response, psqlConnectionConfig, loggingConfig, inferenceId, context_ids, context_scores):
+    currentDate = datetime.now()
+
+    try:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | {inferenceId}] Adding Inference to PostgreSQL Database.")
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = f"INSERT INTO inferences_ChatV2(inferenceId, initialPrompt, finalPrompt, createdAt, response, userId, chatId, context_ids, context_scores) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);"
+
+        cursor.execute(sql_query, (inferenceId, initialPrompt, finalPrompt, currentDate, response, userId, chatId, context_ids, context_scores))
+
+        conn.commit()
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].exception(f"[Chat V2 | {inferenceId}] Error when adding Inference to PostgreSQL Database.")
+        print(e)
+        raise Exception(f"[Chat V2 | {inferenceId}] Error when adding Inference to PostgreSQL Database.")
+
+    finally:
+        cursor.close()
+        conn.close()
+        
+    loggingConfig["loggingObject"].info(f"[Chat V2 | {inferenceId}] Addedd Inference to PostgreSQL Database successfully!")
+    return True
+
+def getInference_ChatV2_from_postgresql(chatId, psqlConnectionConfig, loggingConfig):
+    loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId}] Listing Inferences started.")
+    try:
+        conn = get_db_connection(psqlConnectionConfig)
+        cursor = conn.cursor()
+
+        sql_query = "SELECT * FROM inferences_ChatV2 WHERE chatId = %s;"
+
+        cursor.execute(sql_query, (chatId,))
+
+        conn.commit()
+
+        data = cursor.fetchall()
+        
+        inferences = []
+        
+        for inference in data:
+            response_raw = inference[5]
+            response_html = markdown.markdown(response_raw)
+
+
+            # Get Documents Data
+            context_ids = inference[7]
+            docs = []
+            for documentId in context_ids:
+                doc = getDocumentById(documentId, psqlConnectionConfig, loggingConfig)
+                docs.append(doc)
+
+            item = {"inferenceId": inference[0], "userId": inference[1], "chatId": inference[2], "initialPrompt": inference[3], "finalPrompt": inference[4], "response_raw": inference[5], "createdAt": inference[6], "context_ids": inference[7], "context_scores": inference[8], "response_html": response_html, "docs": docs}
+            inferences.append(item)
+        
+
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId}] Listing Inferences success!")
+    
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId}] Listing Inferences failled!")
+        print(e)
+        raise Exception(f"[Chat V2 | Chat: {chatId}] Listing Inferences failled!")
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    
+    return inferences

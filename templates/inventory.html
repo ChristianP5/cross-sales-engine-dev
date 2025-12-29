@@ -34,6 +34,7 @@
                 <label for="purpose-input" class="form-label col-2">Purpose</label>
                 <select id="purpose-input" class="form-select col-2">
                     <option value="REGULATION">REGULATION</option>
+                    <option value="PRODUCT">PRODUCT</option>
                     <option id="purpose-customer-option" value="CUSTOMER">CUSTOMER</option>
                 </select>
              </div>
@@ -85,7 +86,7 @@
         <!-- Regulations List End -->
     </section>
     <!-- Regulation Docs Inventory End -->
-     <!-- Customer Docs Inventory Start -->
+    <!-- Customer Docs Inventory Start -->
     <section class="row mt-2" id="inventory-box">
         <h2>Customer Documents</h2>
         <!-- Customer List Start -->
@@ -118,5 +119,38 @@
         <!-- Customer List End -->
     </section>
     <!-- Customer Docs Inventory End -->
+    <!-- Products Docs Inventory Start -->
+    <section class="row mt-2" id="inventory-box">
+        <h2>Product Knowledge Documents</h2>
+        <!-- Products List Start -->
+         <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Type</th>
+                    <th>Filename</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="product-inventory-list">
+                <!-- Item Start -->
+                 <!--
+                 <tr>
+                    <td>PDF</td>
+                    <td>extermelyverylongfilenameexample.pdf</td>
+                    <td>Today</td>
+                    <td>
+                        <button type="button" class="btn btn-danger delete-doc-btn">Delete</button>
+                        <button type="button" class="btn btn-success download-doc-btn">Download</button>
+                    </td>
+                 </tr>
+                -->
+                <!-- Item End -->
+            </tbody>
+         </table>
+        <!-- Products List End -->
+    </section>
+    <!-- Products Docs Inventory End -->
 </body>
 </html>

@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <section class="row question-sect">
                 <section class="container user-sect">
                   <section class="row userinfo-sect">
-                    <p><b>${inference.userId}</b> - <span>${inference.dateCreated}</span></p>
+                    <p><b>${inference.userId}</b> - <span>${inference.createdAt}</span></p>
                   </section>
                   <section class="row question-sect"><p>${inference.initialPrompt}</p></section>
                 </section>
@@ -113,7 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <section class="row response-sect">
                 <section class="container ai-sect">
                   <section class="row aiinfo-sect">
-                    <p><b>LLM (Ollama)</b> - <span>${inference.dateCreated}</span></p>
+                    <p><b>Cross Sell Engine AI</b> - <span>${inference.createdAt}</span></p>
                   </section>
                   <section class="row response-sect">
                   <section class="row" id="chat-response-docs-sect">
@@ -186,7 +186,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         // Create a new Chat Item
         const now = new Date();
-        const dateCreated = now.toUTCString();
+        const createdAt = now.toUTCString();
 
         const chatSpaceList = document.querySelector('#chat-space')
         const itemElement = document.createElement('section')
@@ -198,7 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <section class="row question-sect">
                 <section class="container user-sect">
                   <section class="row userinfo-sect">
-                    <p><b>${userId}</b> - <span>${dateCreated}</span></p>
+                    <p><b>${userId}</b> - <span>${createdAt}</span></p>
                   </section>
                   <section class="row question-sect"><p>${question}</p></section>
                 </section>
@@ -206,15 +206,28 @@ document.addEventListener("DOMContentLoaded", async () => {
               <section class="row response-sect">
                 <section class="container ai-sect">
                   <section class="row aiinfo-sect">
-                    <p><b>LLM (Ollama)</b> - <span>${dateCreated}</span></p>
+                    <p><b>Cross Sell Engine AI</b> - <span>${createdAt}</span></p>
                   </section>
                   <section class="row response-sect">
+                  <section class="row" id="chat-response-docs-sect">
+                      <div class="col-1 align-content-center">
+                        <p>Sources:</p>
+                      </div>
+
+                      <div
+                        id="chat-response-docs-list"
+                        class="col-11 d-flex flex-wrap gap-2 mt-2 align-items-center"
+                      >
+                      </div>
+                    </section>
                     <p class="genereated-result-text">Generating Response...</p>
                   </section>
                 </section>
               </section>
             </section>
           `
+
+
 
           chatSpaceList.appendChild(itemElement)
           scrollMax(chatSectionScrollable)
@@ -224,7 +237,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             chatId: chatId
         })
 
-        const targetEndpoint = `/v1/chat`
+        const targetEndpoint = `/v2/chat`
         const result = await fetch(targetEndpoint, {
           method: "POST",
           headers: {
@@ -248,6 +261,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         const generatedResultTextElement = itemElement.querySelector(".genereated-result-text")
         generatedResultTextElement.innerHTML = response
         
+        // Display the Documents associated with the Response
+        const chatResponseDocsList = itemElement.querySelector("#chat-response-docs-list")
+          const retrieved_docs = data.data.docs
+
+          retrieved_docs.forEach(doc => {
+            const item = document.createElement("div")
+                item.classList.add("source-box", "d-flex", "align-items-center", "p-2")
+                
+                var image_src = "new-document.png"
+
+                if(doc.type == "PDF"){
+                    image_src = "pdf.png"
+                }
+
+                item.innerHTML = `
+                    <img
+                    class="source-icon"
+                    src="/file/_assets/${image_src}"
+                    alt=""
+                    />
+                    <span class="ms-2">${doc.name}</span>
+                `
+
+                chatResponseDocsList.appendChild(item)
+
+          })
+
         // Scroll the Chat Section down
         scrollMax(chatSectionScrollable)
 

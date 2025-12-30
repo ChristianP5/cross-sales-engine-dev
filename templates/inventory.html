@@ -19,13 +19,7 @@
     <script src="/file/admin/inventory/inventory.js"></script>
 </head>
 <body class="container">
-    <nav class="row" id="navbar-box">
-        <ul>
-            <li>Home</li>
-            <li>Inventory</li>
-            <li>Logging</li>
-        </ul>
-    </nav>
+    {% include "partials/navbar.html" %}
     <!-- Header Start -->
      <header class="row">
         <h1>Inventory</h1>
@@ -34,16 +28,35 @@
     <!-- Upload Start -->
     <section class="row" id="upload-box">
         <h2>Upload PDF</h2>
-        <form id="upload-form" action="/v1/upload" method="post" enctype=multipart/form-data>
-            <input type="file" name="file" id="input-file">
-            <button class="btn btn-primary" id="submit-btn">Upload</button>
+        <form class="row" id="upload-form" action="/v1/upload" method="post" enctype=multipart/form-data>
+            <input class="col-2" type="file" name="file" id="input-file">
+            <div class="col-2">
+                <label for="purpose-input" class="form-label col-2">Purpose</label>
+                <select id="purpose-input" class="form-select col-2">
+                    <option value="REGULATION">REGULATION</option>
+                    <option value="PRODUCT">PRODUCT</option>
+                    <option id="purpose-customer-option" value="CUSTOMER">CUSTOMER</option>
+                </select>
+             </div>
+            <div id="customer-input-section" class="col-2 d-none">
+                <label for="customer-input" class="form-label col-2">Customer</label>
+                <select id="customer-input" class="form-select col-2">
+                    <!-- Item Start -->
+                     <!--
+                    <option value="111">CUSTOMER_1</option>
+                    -->
+                    <!-- Item End -->
+                </select>
+            </div>
+            <input type="hidden" name="purpose" id="purpose-actual-input">
+            <button class="btn btn-primary col-2" id="submit-btn">Upload</button>
         </form>
     </section>
     <!-- Upload End -->
-    <!-- Inventory Start -->
+    <!-- Regulation Docs Inventory Start -->
     <section class="row mt-2" id="inventory-box">
-        <h2>Inventory</h2>
-        <!-- List Start -->
+        <h2>Regulations</h2>
+        <!-- Regulations List Start -->
          <table class="table table-hover">
             <thead>
                 <tr>
@@ -54,7 +67,7 @@
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody id="inventory-list">
+            <tbody id="regulations-inventory-list">
                 <!-- Item Start -->
                  <!--
                  <tr>
@@ -70,8 +83,74 @@
                 <!-- Item End -->
             </tbody>
          </table>
-        <!-- List End -->
+        <!-- Regulations List End -->
     </section>
-    <!-- Inventory End -->
+    <!-- Regulation Docs Inventory End -->
+    <!-- Customer Docs Inventory Start -->
+    <section class="row mt-2" id="inventory-box">
+        <h2>Customer Documents</h2>
+        <!-- Customer List Start -->
+         <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Type</th>
+                    <th>Filename</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="customer-inventory-list">
+                <!-- Item Start -->
+                 <!--
+                 <tr>
+                    <td>PDF</td>
+                    <td>extermelyverylongfilenameexample.pdf</td>
+                    <td>Today</td>
+                    <td>
+                        <button type="button" class="btn btn-danger delete-doc-btn">Delete</button>
+                        <button type="button" class="btn btn-success download-doc-btn">Download</button>
+                    </td>
+                 </tr>
+                -->
+                <!-- Item End -->
+            </tbody>
+         </table>
+        <!-- Customer List End -->
+    </section>
+    <!-- Customer Docs Inventory End -->
+    <!-- Products Docs Inventory Start -->
+    <section class="row mt-2" id="inventory-box">
+        <h2>Product Knowledge Documents</h2>
+        <!-- Products List Start -->
+         <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Type</th>
+                    <th>Filename</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="product-inventory-list">
+                <!-- Item Start -->
+                 <!--
+                 <tr>
+                    <td>PDF</td>
+                    <td>extermelyverylongfilenameexample.pdf</td>
+                    <td>Today</td>
+                    <td>
+                        <button type="button" class="btn btn-danger delete-doc-btn">Delete</button>
+                        <button type="button" class="btn btn-success download-doc-btn">Download</button>
+                    </td>
+                 </tr>
+                -->
+                <!-- Item End -->
+            </tbody>
+         </table>
+        <!-- Products List End -->
+    </section>
+    <!-- Products Docs Inventory End -->
 </body>
 </html>

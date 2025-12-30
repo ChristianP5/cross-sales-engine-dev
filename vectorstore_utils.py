@@ -971,17 +971,392 @@ Choose this if the user is asking about:
 
     if "cross-sell" in response:
         loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as CROSS-SELL")
-        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = crossSellPipeline_chat_v2(prompt, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, llm_memory_formatted, regulationDocs_formatted)
+        response_raw, augmented_prompt_1, augmented_prompt_2, contexts = crossSellPipeline_chat_v2(prompt, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, llm_memory_formatted, recent_llm_memory, regulationDocs_formatted, contexts)
         augmented_prompt = augmented_prompt_2
-        
+
+        '''
+        print(f"\n\n=========================\nAugmented Prompt #1:")
+        print(augmented_prompt_1)
+
+        print(f"\n\n=========================\nAugmented Prompt #2:")
+        print(augmented_prompt_2)
+
+        print(f"\n\n=========================\n=========================\nResponse:")
+        print(response_raw)
+        '''
+
     else:
         loggingConfig["loggingObject"].info(f"[Chat V2 | Chat: {chatId} Inference: {inferenceId}] Inference is classified as OTHERS")
         response_raw, augmented_prompt, contexts = defaultPipeline_chat_v2(prompt, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt, recent_llm_memory, regulationDocs_formatted, contexts)
 
     return response_raw, augmented_prompt, contexts
 
-def crossSellPipeline_chat_v2():
-    return 0
+
+def crossSellPipeline_chat_v2(question, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, relevant_llm_memory, recent_llm_memory, regulationDocs, contexts):
+    
+    # Constants
+    RETRIEVED_AMM_1 = 5
+    RETRIEVED_AMM_2 = 5
+
+    '''
+    Prompt #1
+    '''
+
+    template_1 ="""Role:
+You are an expert B2B sales strategist and solutions architect specializing in identifying compliant cross-sell opportunities.
+
+Primary Goal:
+Based on the retrieved customer context and applicable regulation documents, generate a list of recommended capabilities that align with the customer’s existing technology environment, company best practices, and vendor product portfolios.
+
+---
+
+SOURCE PRIORITY (DO NOT VIOLATE):
+1. Regulation Documents (Mandatory Compliance Constraints)
+2. Retrieved Customer Context / Technical Environment
+3. Direct Recent Conversations
+4. Relevant Past Answers (Reference Only)
+5. General Industry Knowledge (only if clearly applicable)
+
+If any lower-priority source conflicts with a higher-priority one:
+• You MUST follow the higher-priority source
+• You MUST explicitly state the compliance limitation
+
+---
+
+Regulation Documents (Retrieved — AUTHORITATIVE):
+{regulation_context}
+
+---
+
+Retrieved Customer Context / Technical Environment:
+{context}
+
+---
+
+Direct Recent Conversations (Most Recent First — USE FOR CONTEXTUAL CONTINUITY ONLY):
+{recent_llm_memory}
+
+---
+
+Relevant Past Answers (REFERENCE ONLY — DO NOT INTRODUCE NEW FACTS):
+{relevant_llm_memory}
+
+---
+
+Your Tasks:
+1. Identify the customer’s current technology environment strictly from the Retrieved Customer Context
+2. Identify compliance requirements, restrictions, or obligations imposed by the Regulation Documents
+3. Identify gaps or opportunities where compliant capabilities could improve the customer’s environment
+4. Define the capabilities recommended products or services MUST have to satisfy both:
+   • Business goals
+   • Regulatory obligations
+5. For each recommended capability, provide:
+   • Capability Description (up to 1 concise paragraph)
+
+---
+
+CRITICAL CONSTRAINTS:
+• Regulations are mandatory — do NOT suggest non-compliant solutions
+• Do NOT perform legal interpretation; only map capabilities to stated regulatory requirements
+• Base all technical facts strictly on retrieved context
+• Use memory ONLY to maintain continuity and avoid repetition
+• Do NOT hallucinate unavailable data
+• If regulation or customer data is insufficient, state what additional information is required
+• Use concise, professional, sales-enablement language
+
+---
+
+Output Format (STRICT — DO NOT ADD EXTRA SECTIONS):
+
+List of Recommended Capabilities:
+- [RECOMMENDATION]: [Capability Description].  
+  
+---
+
+Example Output:
+List of Recommended Capabilities:
+- A centralized log and audit data platform to retain, correlate, and analyze security events across infrastructure and applications, supporting incident investigation and long-term audit requirements.  
+- A cloud-native data encryption and key management capability that enforces encryption at rest and in transit while maintaining centralized key control.  
+  
+---
+
+Question:
+{question}
+"""
+ 
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Pipeline initiated. User Prompt: {question}")
+    prompt_1 = ChatPromptTemplate.from_template(template_1)
+
+    # Retrieval 1
+    retrieval_question = initial_retrieval_prompt
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Retrieval 1 started.")
+    retrieved_docs_1_raw = retriever.invoke(retrieval_question)
+    retrieved_docs_1 = []
+    for docs in retrieved_docs_1_raw:
+        retrieved_docs_1.append(docs.page_content)
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Retrieval 1 completed.")
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Reranking 1 started.")
+    context_1, docs_ranked_indices_1, docs_ranked_scores_1 = rerank(question, retrieved_docs_1)
+
+    # Get the IDs of the Reranked Documents
+    retrieved_docs_ranked_ids = []
+    retrieved_docs_ranked_scores = []
+
+    for score_raw in docs_ranked_scores_1[:RETRIEVED_AMM_1]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    for i in docs_ranked_indices_1[:RETRIEVED_AMM_1]:
+        
+        id = retrieved_docs_1_raw[i].metadata['file_id']
+
+        retrieved_docs_ranked_ids.append(id)
+            
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Reranking 1 completed.")
+
+    # Add the Retrieved Context to the Contexts List
+    for ids in retrieved_docs_ranked_ids:
+        contexts["ids"].append(ids)
+    
+    for scores in retrieved_docs_ranked_scores:
+        contexts["scores"].append(scores)
+
+    # Augment 1
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Augment 1 started.")
+    augmented_prompt_1 = prompt_1.invoke({
+        "context": context_1,
+        "question": question,
+        "relevant_llm_memory": relevant_llm_memory,
+        "recent_llm_memory": recent_llm_memory,
+        "regulation_context": regulationDocs
+    }).to_string()
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Augment 1 completed.")
+
+    # Generate 1
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Generate 1 start.")
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+    AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AZURE_API_KEY}"
+    }
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{augmented_prompt_1}"
+            }
+        ],
+        "max_completion_tokens": 40000,
+        "model": "o4-mini"
+    }
+
+    try:
+        response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        response_1 = response_raw.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Something went wrong when inferencing through the Azure AI Model Inference API.")
+        print(e)
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Generate 1 finished.")
+
+    '''
+    Prompt #2
+    '''
+    template_2 ="""Role:
+You are an expert B2B sales strategist and solutions architect specializing in compliant cross-sell recommendations.
+
+Background:
+Previously, you were asked to recommend high-level capabilities that could improve the customer’s environment.
+You already generated the following list of recommended capabilities:
+
+Previously Recommended Capabilities (AUTHORITATIVE — DO NOT MODIFY):
+{response_1}
+
+You MUST:
+• Use ONLY the capabilities listed above
+• NOT introduce new capabilities
+• NOT remove or merge existing capabilities
+
+---
+
+Primary Goal:
+Explain WHY each previously recommended capability is relevant, and identify which of our available products or services can provide those capabilities, while ensuring alignment with customer needs and applicable regulations.
+
+---
+
+SOURCE PRIORITY (DO NOT VIOLATE):
+1. Regulation Documents (Mandatory Compliance Constraints)
+2. Previously Recommended Capabilities
+3. Retrieved Customer Context
+4. Retrieved Product Context
+5. Direct Recent Conversations
+6. Relevant Past Answers
+7. General Knowledge (only if unavoidable and explicitly stated)
+
+If any lower-priority source conflicts with a higher-priority source:
+• Follow the higher-priority source
+• Explicitly state the limitation
+
+---
+
+Regulation Documents (Retrieved — AUTHORITATIVE):
+{regulation_context}
+
+---
+
+Retrieved Customer Information:
+{context_1}
+
+---
+
+Retrieved Product / Service Information:
+{context_2}
+
+---
+
+Direct Recent Conversations (Most Recent First — CONTEXT ONLY):
+{recent_llm_memory}
+
+---
+
+Relevant Past Answers (REFERENCE ONLY):
+{relevant_llm_memory}
+
+---
+
+Your Tasks:
+1. Answer the Question:
+{question}
+
+2. For EACH capability listed in "Previously Recommended Capabilities", identify:
+   • One or more matching products or services from the Retrieved Product Context
+   • Why the product fits this customer’s environment and needs
+   • The business or technical value delivered
+   • Any dependencies, upgrade paths, or prerequisites
+   • How to position this recommendation in a sales conversation
+
+3. Explicitly ensure:
+   • Product recommendations do NOT violate any Regulation Documents
+   • If a capability cannot be mapped to a compliant product, state this clearly
+
+---
+
+CRITICAL CONSTRAINTS:
+• Do NOT generate new capabilities
+• Do NOT reinterpret regulations
+• Do NOT hallucinate missing product features
+• If data is insufficient, state what additional information is needed
+• Use memory ONLY to avoid repetition or contradiction
+• Use concise, professional language suitable for sales enablement
+• Recommend a relevant Contact Person according to PT Multipolar Technology guidelines
+
+---
+
+Output Format (Markdown — STRICT):
+
+### Brief Summary of Customer's Environment
+[1 concise paragraph based strictly on retrieved customer context]
+
+### Cross-Sell Recommendations
+
+#### Capability: [Capability Name from "Previously Recommended Capabilities"]
+
+##### [Product / Service Name]
+* **Short Description:** …
+* **Fit Rationale:** …
+* **Value Proposition:** …
+* **Dependencies / Prerequisites:** …
+* **Confidence Level:** High / Medium / Low
+* **Compliance Alignment:** [High-level reference to regulation]
+* **Sales Positioning Tip:** …
+
+(Repeat for each capability and product)
+    """
+    prompt_2 = ChatPromptTemplate.from_template(template_2)
+
+    # Retrieve 2
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Retrieve 2 started.")
+    retrieved_docs_2_raw = retriever.invoke(response_1)
+    retrieved_docs_2 = []
+    for docs in retrieved_docs_2_raw:
+        retrieved_docs_2.append(docs.page_content)
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Retrieve 2 completed.")
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Reranking 2 started.")
+    context_2, docs_ranked_indices_2, docs_ranked_scores_2 = rerank(response_1, retrieved_docs_2)
+
+    for score_raw in docs_ranked_scores_2[:RETRIEVED_AMM_2]:
+        score = float(score_raw)
+        retrieved_docs_ranked_scores.append(score)
+
+    for i in docs_ranked_indices_2[:RETRIEVED_AMM_2]:
+        
+        id = retrieved_docs_2_raw[i].metadata['file_id']
+        retrieved_docs_ranked_ids.append(id)
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Reranking 2 completed.")
+
+    # Add the Retrieved Context to the Contexts List
+    for ids in retrieved_docs_ranked_ids:
+        contexts["ids"].append(ids)
+    
+    for scores in retrieved_docs_ranked_scores:
+        contexts["scores"].append(scores)
+
+    # Augment 2
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Augment 2 started.")
+    augmented_prompt_2 = prompt_2.invoke({
+        "response_1": response_1,
+        "context_1": context_1,
+        "context_2": context_2,
+        "question": question,
+        "relevant_llm_memory": relevant_llm_memory,
+        "recent_llm_memory": recent_llm_memory,
+        "regulation_context": regulationDocs
+        }).to_string()
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Augment 2 completed.")
+
+    # Generate 2
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Generate 2 started.")
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+    AZURE_ENDPOINT = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/o4-mini/chat/completions?api-version=2025-01-01-preview"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {AZURE_API_KEY}"
+    }
+
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{augmented_prompt_2}"
+            }
+        ],
+        "max_completion_tokens": 100000,
+        "model": "o4-mini"
+    }
+
+    try:
+        response_raw = requests.post(AZURE_ENDPOINT, headers=headers, json=payload)
+        response_2 = response_raw.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Something went wrong when inferencing through the Azure AI Model Inference API.")
+        print(e)
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Generate 2 finished.")
+
+    loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Pipeline completed.")
+    
+    
+    return response_2, augmented_prompt_1, augmented_prompt_2, contexts
+
 
 def defaultPipeline_chat_v2(question, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt, recent_llm_memory, regulationDocs, contexts):
     

@@ -915,6 +915,31 @@ def post_chat_v2():
         }
     }
 
+
+'''
+DEV only
+'''
+@app.route('/v1/vectorStore', methods=['GET'])
+def get_vectorStore():
+    collection = vector_store._collection
+
+    results = collection.get()
+    print(results)
+    print(results["documents"])
+    print(results["metadatas"])
+    print(results["ids"])
+
+    return {
+        "status": "success",
+        "message": "Vector Store listed Successfully!",
+        "data": {
+            "documents": results["documents"],
+            "metadatas": results["metadatas"],
+            "ids": results["ids"]
+        }
+    }
+
+
 '''
 API SERVER END
 ================================================================================================

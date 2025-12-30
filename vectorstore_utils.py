@@ -783,7 +783,7 @@ def generateCustomerProfile(customerId, vectorStore, loggingConfig, instructionC
                 "content": f"{final_prompt}"
             }
         ],
-        "max_completion_tokens": 400000,
+        "max_completion_tokens": 100000,
         "model": "o4-mini"
     }
 

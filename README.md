@@ -40,3 +40,4 @@ Set Environment Variable:
 - /inventory
 - /chat
 - /chats/TEST_CHAT
+- /customers

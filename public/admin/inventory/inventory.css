@@ -1,0 +1,144 @@
+/* Core Variables */
+:root {
+    --dark-red: #8B0000;
+    --hover-red: #a30000;
+    --white: #ffffff;
+    --off-white: #f4f4f4;
+    --border-color: #dee2e6;
+    --text-main: #333333;
+}
+
+/* Base Body Styles */
+body {
+    background-color: var(--off-white);
+    color: var(--text-main);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+}
+
+/* Navigation */
+nav {
+    background-color: var(--dark-red);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    display: flex;
+    gap: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+nav a {
+    color: var(--white) !important;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+nav a:hover, nav a.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Typography */
+h1 {
+    color: var(--dark-red);
+    font-weight: 700;
+    border-bottom: 3px solid var(--dark-red);
+    padding-bottom: 10px;
+    margin-bottom: 2rem;
+}
+
+h2 {
+    font-size: 1.5rem;
+    color: #444;
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Sections as Cards */
+section {
+    background-color: var(--white);
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 2rem !important;
+}
+
+/* Form Styling */
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.form-select, .form-control {
+    border: 1px solid var(--border-color);
+    padding: 0.6rem;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--dark-red) !important;
+    border-color: var(--dark-red) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-primary:hover {
+    background-color: var(--hover-red) !important;
+}
+
+.btn-success {
+    background-color: #ffffff !important;
+    color: var(--dark-red) !important;
+    border: 1px solid var(--dark-red) !important;
+}
+
+.btn-success:hover {
+    background-color: var(--dark-red) !important;
+    color: white !important;
+}
+
+/* Table Styling */
+.table {
+    margin-top: 1rem;
+}
+
+.table thead th {
+    background-color: var(--dark-red);
+    color: var(--white);
+    border: none;
+    padding: 12px;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(139, 0, 0, 0.03);
+}
+
+/* Document List Specifics */
+td {
+    vertical-align: middle;
+    font-size: 0.95rem;
+}
+
+.delete-doc-btn {
+    background-color: transparent !important;
+    color: #dc3545 !important;
+    border: none !important;
+    text-decoration: underline;
+}
+
+.delete-doc-btn:hover {
+    color: #a71d2a !important;
+}
+
+/* Spacing and Alignment Fixes */
+#upload-form {
+    align-items: flex-end;
+}
+
+#input-file {
+    padding-top: 5px;
+}

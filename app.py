@@ -887,7 +887,7 @@ def post_chat_v2():
     response_raw, augmented_prompt, contexts = vectorStoreUtils.chat_v2(prompt, retriever, LOGGING_CONFIGURATION, inferenceId, vector_store, chatId, recent_llm_memory_formatted)
 
 
-    print(f"Augmented Prompt: {augmented_prompt}\nResponse: {response_raw}\nContexts: {contexts}")
+    # print(f"Augmented Prompt: {augmented_prompt}\nResponse: {response_raw}\nContexts: {contexts}")
 
     contexts_ids = contexts["ids"]
     contexts_scores = contexts["scores"]
@@ -924,10 +924,10 @@ def get_vectorStore():
     collection = vector_store._collection
 
     results = collection.get()
-    print(results)
-    print(results["documents"])
-    print(results["metadatas"])
-    print(results["ids"])
+    # print(results)
+    # print(results["documents"])
+    # print(results["metadatas"])
+    # print(results["ids"])
 
     return {
         "status": "success",

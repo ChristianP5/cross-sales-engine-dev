@@ -1,0 +1,18 @@
+.source-box {
+    background-color: #e9ecef; /* light gray */
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: default;           /* prevents pointer as if clickable */
+    transition: background-color 0.25s, transform 0.25s;
+}
+
+.source-box:hover {
+    background-color: #d6d8db; /* slightly darker gray */
+    transform: translateY(-2px);
+}
+
+.source-icon {
+    width: 12px;        /* fixed width */
+    height: 12px;       /* fixed height */
+    object-fit: contain; /* keeps aspect ratio */
+}

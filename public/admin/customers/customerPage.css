@@ -1,0 +1,161 @@
+/* Unified Core Theme */
+:root {
+    --dark-red: #8B0000;
+    --hover-red: #a30000;
+    --white: #ffffff;
+    --off-white: #f8f9fa;
+    --border-color: #dee2e6;
+    --text-main: #212529;
+    --accent-gray: #6c757d;
+}
+
+/* Base Body Styles */
+body {
+    background-color: var(--off-white);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-top: 2rem;
+    padding-bottom: 5rem;
+    line-height: 1.6;
+}
+
+/* Navigation - Consistent Across Apps */
+nav {
+    background-color: var(--dark-red);
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    margin-bottom: 2.5rem;
+    display: flex;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.15);
+}
+
+nav a {
+    color: rgba(255, 255, 255, 0.8) !important;
+    text-decoration: none !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+nav a:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: var(--white) !important;
+}
+
+/* Headers */
+h1 {
+    color: var(--dark-red);
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+
+#customer-name-text {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    border-left: 6px solid var(--dark-red);
+    padding-left: 15px;
+    margin-bottom: 2rem;
+}
+
+/* Section Containers */
+section#customer-box {
+    background-color: var(--white);
+    padding: 3rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+/* Subsection Typography */
+h3 {
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    color: var(--dark-red);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 20px !important;
+}
+
+/* Profile Content Styling */
+#customer-profile-text h3 {
+    border-bottom: none;
+    letter-spacing: normal;
+    font-size: 1.25rem;
+    color: #333;
+    margin-top: 1.5rem;
+    text-transform: none;
+}
+
+#customer-profile-text ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#customer-profile-text ul li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f1f1;
+    position: relative;
+    padding-left: 20px;
+}
+
+#customer-profile-text ul li::before {
+    content: "•";
+    color: var(--dark-red);
+    font-weight: bold;
+    position: absolute;
+    left: 0;
+}
+
+/* Products Tags */
+#customer-products-text ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-left: 0;
+    list-style: none;
+}
+
+#customer-products-text li {
+    background-color: var(--off-white);
+    color: var(--dark-red);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border: 1px solid rgba(139, 0, 0, 0.1);
+}
+
+/* Table Styling */
+.table {
+    margin-top: 1.5rem;
+}
+
+.table thead th {
+    background-color: transparent;
+    color: var(--accent-gray);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    border-top: none;
+}
+
+/* Buttons */
+.btn-success {
+    background-color: var(--dark-red) !important;
+    border-color: var(--dark-red) !important;
+    font-size: 0.85rem;
+}
+
+.btn-danger {
+    background-color: transparent !important;
+    color: var(--accent-gray) !important;
+    border: none !important;
+    font-size: 0.85rem;
+    text-decoration: underline;
+}
+
+.btn-danger:hover {
+    color: var(--dark-red) !important;
+}

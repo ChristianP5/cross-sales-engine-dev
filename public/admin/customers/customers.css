@@ -1,0 +1,152 @@
+/* Core Theme Variables */
+:root {
+    --dark-red: #8B0000;
+    --hover-red: #a30000;
+    --white: #ffffff;
+    --off-white: #f8f9fa; /* Slightly darker white */
+    --border-color: #dee2e6;
+    --text-main: #212529;
+}
+
+/* Base Body Styles */
+body {
+    background-color: var(--off-white);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+}
+
+/* Navigation - Consistent with Inventory */
+nav {
+    background-color: var(--dark-red);
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    margin-bottom: 2.5rem;
+    display: flex;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.15);
+}
+
+nav a {
+    color: rgba(255, 255, 255, 0.8) !important;
+    text-decoration: none !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease-in-out;
+}
+
+nav a:hover, nav a.active {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: var(--white) !important;
+}
+
+/* Header Styling */
+h1 {
+    color: var(--dark-red);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 1.5rem;
+}
+
+h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Section Containers as White Cards */
+section {
+    background-color: var(--white);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 2px 15px rgba(0,0,0,0.04);
+    margin-bottom: 1.5rem !important;
+}
+
+/* Form Elements */
+#main-form {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.form-control {
+    border: 1px solid var(--border-color);
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    border-color: var(--dark-red);
+    box-shadow: 0 0 0 0.25rem rgba(139, 0, 0, 0.1);
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--dark-red) !important;
+    border-color: var(--dark-red) !important;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    border-radius: 6px;
+}
+
+.btn-primary:hover {
+    background-color: var(--hover-red) !important;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background-color: transparent !important;
+    color: var(--dark-red) !important;
+    border: 1px solid var(--dark-red) !important;
+    font-weight: 500;
+}
+
+.btn-success:hover {
+    background-color: var(--dark-red) !important;
+    color: var(--white) !important;
+}
+
+.btn-danger {
+    background-color: transparent !important;
+    color: #dc3545 !important;
+    border: none !important;
+    text-decoration: underline;
+}
+
+.btn-danger:hover {
+    color: #8b0000 !important;
+}
+
+/* Table Styling */
+.table {
+    margin-top: 1rem;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table thead th {
+    background-color: #fcfcfc;
+    color: var(--dark-red);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    border-bottom: 2px solid var(--dark-red);
+    padding: 1rem;
+}
+
+.table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(139, 0, 0, 0.02);
+}

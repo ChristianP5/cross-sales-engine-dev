@@ -8,3 +8,5 @@ psycopg2-binary
 markdown
 sentence-transformers
 gunicorn
+PyMuPDF
+pillow

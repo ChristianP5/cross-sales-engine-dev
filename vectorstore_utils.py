@@ -1,5 +1,9 @@
 from langchain_community.document_loaders import PyPDFLoader
 from uuid import uuid4
+import fitz             # from PyMuPDF
+import PIL.Image        # from pillow
+import io
+import base64
 
 from langchain_ollama.llms import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
@@ -21,6 +25,12 @@ def allowed_file(filename, allowedExtensions):
 
 def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
 
+    """
+    1) Add Document to Vector Store
+    2) Add AI-Generated Text of 'the Images inside Documents' to Vector Store
+    """
+
+    # 1)
     loader = PyPDFLoader(filepath)
     
     docs = loader.load()
@@ -35,6 +45,97 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
 
 
     vectorStore.add_documents(documents=docs, ids=ids)
+
+    # 2)
+    image_counter = 0
+
+    pdf = fitz.open(filepath)
+
+    for i in range(len(pdf)):
+        page = pdf[i]
+        images = page.get_images()
+
+        for image in images:
+            image_counter += 1
+            base_img = pdf.extract_image(image[0])
+            image_data = base_img["image"]
+
+            img = PIL.Image.open(io.BytesIO(image_data))
+
+            # Convert Image Data (bytes) to Base64
+            buffer = io.BytesIO()
+            img.save(buffer, format="PNG")
+            base64_bytes = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            image_data_url = f"data:image/png;base64,{base64_bytes}"
+
+            # Get AI-Generated Summary of the Base64-encoded Image Data
+            AZURE_ENDPOINT_UPLOADFEATURE = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/gpt-4.1/chat/completions?api-version=2025-01-01-preview"
+            AZURE_API_KEY_UPLOADFEATURE = os.getenv("AZURE_API_KEY_UPLOADFEATURE")
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {AZURE_API_KEY_UPLOADFEATURE}"
+            }
+
+            payload = {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "You are converting images into text for a knowledge retrieval system.\n"
+                                        "Describe the image in detail, including:\n"
+                                        "- Image type\n"
+                                        "- Entities and components\n"
+                                        "- Relationships or flows\n"
+                                        "- Labels, legends, axes, and units\n"
+                                        "- Any visible text\n"
+                                        "Be factual and structured."
+                                    )
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_data_url
+                                    }
+                                }
+                            ]
+                    }
+                ],
+                "max_completion_tokens": 30000,
+                "model": "gpt-4.1"
+            }
+
+            response_raw = requests.post(AZURE_ENDPOINT_UPLOADFEATURE, headers=headers, json=payload)
+            response = response_raw.json()["choices"][0]["message"]["content"]
+
+            print(f"[Image #{image_counter}]: {response}\n")
+
+            # Add AI-Generated Text to Vector Store
+            page_content = f"{response}\n Page Number: {i+1}\n Image Index: {image_counter-1}"
+    
+            doc = Document(
+                page_content=page_content,
+            )
+
+            doc.metadata["type"] = "document"
+            doc.metadata["purpose"] = purpose
+            doc.metadata["file_id"] = str(fileId)
+            doc.metadata["source_file"] = filepath
+            doc.metadata["derived"] = "Image"
+            doc.metadata["page"] = i+1
+            doc.metadata["index"] = image_counter-1
+
+            try:
+                id = str(uuid4())
+                vectorStore.add_documents(documents=[doc], ids=[id])
+                print(f"Image #{image_counter-1} from File {fileId} Page {i+1} is Aded to Vector Store.")
+
+            except Exception as e:
+                print(e)
+                return True
+ 
 
     return len(docs)
 

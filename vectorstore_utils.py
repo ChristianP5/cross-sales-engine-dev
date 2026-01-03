@@ -130,12 +130,13 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
             try:
                 id = str(uuid4())
                 vectorStore.add_documents(documents=[doc], ids=[id])
-                print(f"Image #{image_counter-1} from File {fileId} Page {i+1} is Aded to Vector Store.")
+                # print(f"Image #{image_counter-1} from File {fileId} Page {i+1} is Aded to Vector Store.")
 
             except Exception as e:
                 print(e)
                 return True
- 
+            
+    print(f"File {fileId} has {image_counter} Images")
 
     return len(docs)
 

@@ -910,7 +910,7 @@ CHAT V2
 
 def chat_v2(prompt, retriever, loggingConfig, inferenceId, vector_store, chatId, recent_llm_memory_input):
 
-    RETRIEVED_AMM = 5
+    RETRIEVED_AMM = 10
 
     # 1) Classify Prompt
     # 2) Pre-Process Prompt
@@ -1005,8 +1005,8 @@ Choose this if the user is asking about:
         regulationDocs_retriever = vector_store.as_retriever(
             search_type="mmr",
             search_kwargs={
-                "k": 5,
-                "fetch_k": 10,
+                "k": 10,
+                "fetch_k": 20,
                 "filter": {
                     "$and": [
                         {"type": "document"},
@@ -1097,8 +1097,8 @@ Choose this if the user is asking about:
 def crossSellPipeline_chat_v2(question, retriever, loggingConfig, inferenceId, initial_retrieval_prompt, relevant_llm_memory, recent_llm_memory, regulationDocs, contexts):
     
     # Constants
-    RETRIEVED_AMM_1 = 5
-    RETRIEVED_AMM_2 = 5
+    RETRIEVED_AMM_1 = 10
+    RETRIEVED_AMM_2 = 10
 
     '''
     Prompt #1
@@ -1202,6 +1202,13 @@ Question:
     loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Reranking 1 started.")
     context_1, docs_ranked_indices_1, docs_ranked_scores_1 = rerank(question, retrieved_docs_1)
 
+    context_1_formatted = "\n".join(
+            [
+                f"[Document #{i+1}]:\n{context_item}"
+                for i, context_item in enumerate(context_1)
+            ]
+        )
+
     # Get the IDs of the Reranked Documents
     retrieved_docs_ranked_ids = []
     retrieved_docs_ranked_scores = []
@@ -1229,7 +1236,7 @@ Question:
     # Augment 1
     loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Augment 1 started.")
     augmented_prompt_1 = prompt_1.invoke({
-        "context": context_1,
+        "context": context_1_formatted,
         "question": question,
         "relevant_llm_memory": relevant_llm_memory,
         "recent_llm_memory": recent_llm_memory,
@@ -1393,6 +1400,13 @@ Output Format (Markdown — STRICT):
     loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Reranking 2 started.")
     context_2, docs_ranked_indices_2, docs_ranked_scores_2 = rerank(response_1, retrieved_docs_2)
 
+    context_2_formatted = "\n".join(
+            [
+                f"[Document #{i+1}]:\n{context_item}"
+                for i, context_item in enumerate(context_2)
+            ]
+        )
+
     for score_raw in docs_ranked_scores_2[:RETRIEVED_AMM_2]:
         score = float(score_raw)
         retrieved_docs_ranked_scores.append(score)
@@ -1415,8 +1429,8 @@ Output Format (Markdown — STRICT):
     loggingConfig["loggingObject"].info(f"[Chat V2 - cross-sell | Inference: {inferenceId}] Augment 2 started.")
     augmented_prompt_2 = prompt_2.invoke({
         "response_1": response_1,
-        "context_1": context_1,
-        "context_2": context_2,
+        "context_1": context_1_formatted,
+        "context_2": context_2_formatted,
         "question": question,
         "relevant_llm_memory": relevant_llm_memory,
         "recent_llm_memory": recent_llm_memory,

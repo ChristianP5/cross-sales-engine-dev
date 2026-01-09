@@ -160,8 +160,8 @@ vector_store = Chroma(
 
 retriever = vector_store.as_retriever(
     search_type="mmr", search_kwargs={
-            "k": 5,
-            "fetch_k": 10,
+            "k": 10,
+            "fetch_k": 20,
             "filter": {
                 "type": "document"
             }

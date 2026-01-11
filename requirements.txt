@@ -10,3 +10,4 @@ sentence-transformers
 gunicorn
 PyMuPDF
 pillow
+pdfminer.six

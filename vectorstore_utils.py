@@ -18,6 +18,10 @@ import os
 
 from langchain_core.documents import Document
 
+from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextBoxHorizontal, LTFigure
+
+
 def allowed_file(filename, allowedExtensions):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowedExtensions
@@ -26,28 +30,14 @@ def allowed_file(filename, allowedExtensions):
 def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
 
     """
-    1) Add Document to Vector Store
-    2) Add AI-Generated Text of 'the Images inside Documents' to Vector Store
+    1) List All Image Data inside the Document 
+    2) Get the Layout of the Document
+    3) Create the Documents Array (and add AI-Generated Text of 'the Image Data inside the Document')
+    4) Add the Documentss Array to the Vector Store
     """
 
     # 1)
-    loader = PyPDFLoader(filepath)
-    
-    docs = loader.load()
-    ids = [str(uuid4()) for _ in range(len(docs))]
-
-    # For adding metadata to each chunk
-    for doc in docs:
-        doc.metadata["source_file"] = filepath
-        doc.metadata["file_id"] = str(fileId)
-        doc.metadata["type"] = "document"
-        doc.metadata["purpose"] = purpose
-
-
-    vectorStore.add_documents(documents=docs, ids=ids)
-
-    # 2)
-    image_counter = 0
+    image_data_arr = []
 
     pdf = fitz.open(filepath)
 
@@ -56,7 +46,6 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
         images = page.get_images()
 
         for image in images:
-            image_counter += 1
             base_img = pdf.extract_image(image[0])
             image_data = base_img["image"]
 
@@ -67,6 +56,69 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
             img.save(buffer, format="PNG")
             base64_bytes = base64.b64encode(buffer.getvalue()).decode("utf-8")
             image_data_url = f"data:image/png;base64,{base64_bytes}"
+
+            image_data_arr.append(image_data_url)
+
+    # 2)
+    # OLD Doc Loader
+    # loader = PyPDFLoader(filepath)
+    # docs = loader.load()
+
+    # NEW Doc Loader
+    elements = []
+ 
+    for page_num, page_layout in enumerate(extract_pages(filepath), start=1):
+        for element in page_layout:
+            if isinstance(element, (LTTextBoxHorizontal, LTFigure)):
+                elements.append({
+                    "element": element,
+                    "page": page_num
+                })
+    
+    # Sort by:
+    # 1) page number (ascending)
+    # 2) y1 (descending = top → bottom)
+    # 3) x0 (ascending = left → right)
+    elements.sort(
+        key=lambda e: (
+            e["page"],
+            -e["element"].bbox[3],
+            e["element"].bbox[0]
+        )
+    )
+    
+    for e in elements:
+        el = e["element"]
+        # print(f"[Page {e['page']} | y0={el.bbox[1]:.2f}] {el}")
+
+    # 3)
+    docs = []
+
+    layout_arr = []
+    context_fromText = ""
+    images_data_arr_index = 0
+    buffer = ""
+    
+    for element in elements:
+        if isinstance(element["element"], LTTextBoxHorizontal):
+            layout_arr.append("Text")
+            current_text = element["element"].get_text()
+    
+            buffer = f"{buffer}\n{current_text}"
+        if isinstance(element["element"], LTFigure):
+            if buffer != "":
+                current_text_item = f"File Name: {filepath}\nContexts:\n- The previous Line of Text was: '{context_fromText}'\n- Page: {element['page']}\nContent: {buffer}\n"
+                doc = Document(
+                    page_content=current_text_item,
+                )
+                docs.append(doc)
+    
+                context_fromText = current_text
+                buffer = ""
+            layout_arr.append("Figure")
+
+            # Generate Text Content from Image
+            image_data = image_data_arr[images_data_arr_index]
 
             # Get AI-Generated Summary of the Base64-encoded Image Data
             AZURE_ENDPOINT_UPLOADFEATURE = "https://c-ailab-aifoundry1.cognitiveservices.azure.com/openai/deployments/gpt-4.1/chat/completions?api-version=2025-01-01-preview"
@@ -85,19 +137,22 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
                                     "type": "text",
                                     "text": (
                                         "You are converting images into text for a knowledge retrieval system.\n"
-                                        "Describe the image in detail, including:\n"
+                                        "Describe the image in detail based on any given Context, including:\n"
                                         "- Image type\n"
                                         "- Entities and components\n"
                                         "- Relationships or flows\n"
                                         "- Labels, legends, axes, and units\n"
                                         "- Any visible text\n"
-                                        "Be factual and structured."
+                                        "Be factual and structured.\n"
+                                        "Context:\n"
+                                        f"- Source File: {filepath}\n"
+                                        f"- Previous Line of Text: {context_fromText}"
                                     )
                                 },
                                 {
                                     "type": "image_url",
                                     "image_url": {
-                                        "url": image_data_url
+                                        "url": image_data
                                     }
                                 }
                             ]
@@ -108,35 +163,46 @@ def pdf_to_vectorstore(filepath, fileId, vectorStore, purpose):
             }
 
             response_raw = requests.post(AZURE_ENDPOINT_UPLOADFEATURE, headers=headers, json=payload)
-            response = response_raw.json()["choices"][0]["message"]["content"]
+            image_content = response_raw.json()["choices"][0]["message"]["content"]
 
-            print(f"[Image #{image_counter}]: {response}\n")
-
-            # Add AI-Generated Text to Vector Store
-            page_content = f"{response}\n Page Number: {i+1}\n Image Index: {image_counter-1}"
-    
+            current_image_item = f"File Name: {filepath}\nContexts:\n- The previous Line of Text was: '{context_fromText}'\n- Page: {element['page']}\nImage Content: {image_content}\n"
             doc = Document(
-                page_content=page_content,
+                page_content=current_image_item,
             )
-
-            doc.metadata["type"] = "document"
-            doc.metadata["purpose"] = purpose
-            doc.metadata["file_id"] = str(fileId)
-            doc.metadata["source_file"] = filepath
-            doc.metadata["derived"] = "Image"
-            doc.metadata["page"] = i+1
-            doc.metadata["index"] = image_counter-1
-
-            try:
-                id = str(uuid4())
-                vectorStore.add_documents(documents=[doc], ids=[id])
-                # print(f"Image #{image_counter-1} from File {fileId} Page {i+1} is Aded to Vector Store.")
-
-            except Exception as e:
-                print(e)
-                return True
             
-    print(f"File {fileId} has {image_counter} Images")
+            images_data_arr_index += 1
+            docs.append(doc)
+    
+    if buffer != "":
+        current_text_item = f"File Name: {filepath}\nContexts:\n- The previous Line of Text was: '{context_fromText}'\n- Page: {element['page']}\nContent: {buffer}\n"
+        doc = Document(
+                page_content=current_text_item,
+            )
+        
+        docs.append(doc)
+    
+        context_fromText = current_text
+        buffer = ""
+
+
+    # 4)
+    ids = [str(uuid4()) for _ in range(len(docs))]
+
+    # For adding metadata to each chunk
+    for doc in docs:
+        doc.metadata["source_file"] = filepath
+        doc.metadata["file_id"] = str(fileId)
+        doc.metadata["type"] = "document"
+        doc.metadata["purpose"] = purpose
+
+    try:
+        print(docs)
+        vectorStore.add_documents(documents=docs, ids=ids)
+    except Exception as e:
+        print(e)
+        return True
+            
+    print(f"File {fileId} has {len(image_data_arr)} Images")
 
     return len(docs)
 
@@ -1476,7 +1542,7 @@ Output Format (Markdown — STRICT):
 
 def defaultPipeline_chat_v2(question, retriever, loggingConfig, inferenceId, llm_memory_formatted, chatId, initial_retrieval_prompt, recent_llm_memory, regulationDocs, contexts):
     
-    RETRIEVED_AMM = 5
+    RETRIEVED_AMM = 15
 
     template ="""Role:
 You are an expert B2B sales strategist and solutions architect operating under strict company regulations.
